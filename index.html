@@ -138,6 +138,16 @@
             <p>For each option, name it and describe what the best and worst realistic outcomes look like.</p>
           </div>
 
+          <div id="autofill-banner" class="autofill-banner" hidden>
+            <div class="autofill-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L2 14h12L8 2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v4M8 12v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+            </div>
+            <div>
+              <strong>We pre-filled this from your description.</strong>
+              <span>Numbers come from published research. Edit anything that doesn't match your situation.</span>
+            </div>
+          </div>
+
           <div id="options-container" class="options-container"></div>
 
           <button type="button" class="btn btn-outline add-option-btn" id="add-option-btn">
@@ -200,8 +210,9 @@
             </div>
             <div class="context-body">
               <h4>What's the typical success rate?</h4>
-              <p>If you know a rough number for people in your situation, enter it.</p>
+              <p id="base-rate-hint">If you know a rough number for people in your situation, enter it.</p>
               <input id="base-rate-input" class="input" type="number" min="0" max="100" step="1" placeholder="e.g. 15%">
+              <p id="base-rate-fact" class="research-fact" hidden></p>
             </div>
           </div>
 

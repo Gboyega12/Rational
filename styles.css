@@ -230,6 +230,33 @@ body {
 .btn-sm { font-size: var(--text-xs); padding: 6px 14px; }
 .btn-success-soft { background: var(--green-dim); color: var(--green); border: none; }
 
+/* ---- Autofill Banner ---- */
+.autofill-banner {
+  display: flex; gap: var(--space-3); align-items: flex-start;
+  padding: var(--space-4) var(--space-5);
+  background: var(--red-dim); border: 1px solid rgba(215,25,33,.2);
+  border-radius: var(--radius-md); margin-bottom: var(--space-6);
+  font-size: var(--text-sm); color: var(--white-60);
+  animation: fadeUp var(--dur-slow) var(--spring);
+}
+.autofill-banner strong { color: var(--white); display: block; margin-bottom: 2px; }
+.autofill-icon { color: var(--red); flex-shrink: 0; margin-top: 2px; }
+
+.autofill-tag {
+  display: inline-block; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--red); background: var(--red-dim);
+  padding: 1px 6px; border-radius: 3px; margin-left: 6px;
+  vertical-align: middle;
+}
+
+.research-fact {
+  font-size: var(--text-xs); color: var(--red); margin-top: 6px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--red-dim); border-radius: var(--radius-sm);
+  line-height: 1.5;
+}
+
 /* ---- Progress Bar ---- */
 .progress-bar {
   position: relative; height: 3px;

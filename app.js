@@ -293,6 +293,359 @@
   });
 
   // ================================================================
+  // SMART PARSER — Extract options + research-backed numbers
+  // ================================================================
+  const RESEARCH = {
+    // Each entry: { keywords, bestProb, worstProb, bestPayoff, worstPayoff, bestDesc, worstDesc, baseRate }
+    // Probabilities are 0-100 integers. Payoffs are typical USD values.
+    startup: {
+      keywords: ['startup', 'start-up', 'founder', 'co-founder', 'fintech', 'saas', 'app idea', 'mvp', 'venture', 'launch my', 'build a company', 'my company', 'go all-in', 'entrepreneurship'],
+      bestProb: 20, worstProb: 80,
+      bestDesc: 'Company gains traction, raises funding or reaches profitability',
+      worstDesc: 'Company fails — time and savings lost',
+      bestPayoff: 500000, worstPayoff: -50000,
+      baseRate: 10,
+      baseFact: 'About 10% of startups succeed. Fintech with founder-market fit runs 15-20%.',
+    },
+    job_new: {
+      keywords: ['new job', 'job offer', 'take the job', 'switch jobs', 'new role', 'new position', 'join a company', 'accept the offer'],
+      bestProb: 65, worstProb: 35,
+      bestDesc: 'Role works out — better pay, growth, satisfaction',
+      worstDesc: 'Bad fit — stress, culture mismatch, or layoff within a year',
+      bestPayoff: 95000, worstPayoff: -15000,
+      baseRate: 70,
+      baseFact: 'About 70% of job transitions are rated positively after 1 year.',
+    },
+    job_stay: {
+      keywords: ['stay at', 'current job', 'keep my job', 'stay put', 'remain at', 'current role', 'current position', 'where i am'],
+      bestProb: 60, worstProb: 40,
+      bestDesc: 'Steady income, promotion over time, work-life balance maintained',
+      worstDesc: 'Stagnation, missed opportunity window, growing dissatisfaction',
+      bestPayoff: 80000, worstPayoff: 65000,
+      baseRate: null,
+    },
+    certification: {
+      keywords: ['certification', 'certificate', 'cert', 'cfa', 'cpa', 'pmp', 'aws cert', 'exam', 'get certified', 'professional qualification', 'credential'],
+      bestProb: 45, worstProb: 55,
+      bestDesc: 'Pass the exam, credential opens doors to better roles',
+      worstDesc: 'Fail or pass but market doesn\'t value it enough — time and fee lost',
+      bestPayoff: 15000, worstPayoff: -5000,
+      baseRate: 45,
+      baseFact: 'First-attempt pass rates vary: CFA ~40%, PMP ~60%, AWS ~70%.',
+    },
+    degree: {
+      keywords: ['degree', 'masters', 'mba', 'phd', 'graduate school', 'grad school', 'university', 'college', 'go back to school', 'enrol', 'enroll'],
+      bestProb: 55, worstProb: 45,
+      bestDesc: 'Complete degree, improved career prospects and earning power',
+      worstDesc: 'Debt burden without proportional salary increase',
+      bestPayoff: 25000, worstPayoff: -60000,
+      baseRate: 65,
+      baseFact: 'About 65% of master\'s students complete their degree. MBA ROI varies widely by program tier.',
+    },
+    invest_market: {
+      keywords: ['invest', 'stock', 'crypto', 'bitcoin', 'index fund', 'etf', 'portfolio', 'real estate investment', 'property invest', 'shares', 'trading'],
+      bestProb: 55, worstProb: 45,
+      bestDesc: 'Investment grows — returns above market average',
+      worstDesc: 'Market drops or asset loses value',
+      bestPayoff: 30000, worstPayoff: -20000,
+      baseRate: 55,
+      baseFact: 'S&P 500 is positive ~55% of months, ~73% of years. Individual stock picking underperforms index 85% of the time.',
+    },
+    buy_house: {
+      keywords: ['buy a house', 'buy a home', 'buy property', 'mortgage', 'first home', 'real estate', 'buy a flat', 'buy an apartment'],
+      bestProb: 60, worstProb: 40,
+      bestDesc: 'Property appreciates, stable housing, equity builds',
+      worstDesc: 'Market dips, maintenance costs, or unable to keep up payments',
+      bestPayoff: 80000, worstPayoff: -40000,
+      baseRate: 65,
+      baseFact: 'Historically homes appreciate ~3-4% annually. About 1-2% of mortgages default.',
+    },
+    relocate: {
+      keywords: ['move to', 'relocate', 'moving abroad', 'move abroad', 'different city', 'emigrate', 'immigration', 'new country'],
+      bestProb: 55, worstProb: 45,
+      bestDesc: 'Better opportunities, quality of life, personal growth',
+      worstDesc: 'Loneliness, higher cost of living, career disruption',
+      bestPayoff: 30000, worstPayoff: -20000,
+      baseRate: 60,
+      baseFact: 'About 60% of relocators report being happy with the move after 2 years.',
+    },
+    relationship: {
+      keywords: ['marry', 'marriage', 'move in', 'break up', 'divorce', 'partner', 'relationship', 'propose', 'commit to'],
+      bestProb: 55, worstProb: 45,
+      bestDesc: 'Relationship deepens, mutual growth and support',
+      worstDesc: 'Relationship deteriorates, emotional and financial cost',
+      bestPayoff: 50000, worstPayoff: -30000,
+      baseRate: null,
+    },
+    freelance: {
+      keywords: ['freelance', 'consulting', 'self-employed', 'go independent', 'contractor', 'side hustle scale', 'quit to freelance'],
+      bestProb: 40, worstProb: 60,
+      bestDesc: 'Client pipeline builds, income exceeds previous salary',
+      worstDesc: 'Inconsistent income, isolation, back to job market',
+      bestPayoff: 120000, worstPayoff: -25000,
+      baseRate: 35,
+      baseFact: 'About 35% of freelancers earn more than their previous salary within 2 years.',
+    },
+    save_money: {
+      keywords: ['save money', 'savings', 'emergency fund', 'pay off debt', 'pay down', 'frugal'],
+      bestProb: 70, worstProb: 30,
+      bestDesc: 'Financial cushion built, reduced stress, options open up',
+      worstDesc: 'Lifestyle sacrifice without meaningful progress',
+      bestPayoff: 20000, worstPayoff: -2000,
+      baseRate: null,
+    },
+    health: {
+      keywords: ['surgery', 'treatment', 'therapy', 'medication', 'lose weight', 'fitness', 'health plan', 'diet', 'rehab'],
+      bestProb: 60, worstProb: 40,
+      bestDesc: 'Health improves, quality of life increases',
+      worstDesc: 'Treatment doesn\'t work, side effects, cost without benefit',
+      bestPayoff: 50000, worstPayoff: -15000,
+      baseRate: null,
+    },
+    raise_funding: {
+      keywords: ['raise', 'funding', 'pre-seed', 'seed round', 'angel', 'investor', 'pitch', 'vc', 'venture capital', 'fundraise'],
+      bestProb: 18, worstProb: 82,
+      bestDesc: 'Funded — runway to build, implied valuation validates the idea',
+      worstDesc: 'Rejected by investors — months spent pitching with no result',
+      bestPayoff: 150000, worstPayoff: -10000,
+      baseRate: 15,
+      baseFact: 'About 15-20% of startups that actively pitch investors get pre-seed funding.',
+    },
+  };
+
+  // Extract money amounts from text (handles $, £, €, K, M suffixes)
+  function extractAmounts(text) {
+    const amounts = [];
+    const regex = /[\$£€]?\s*(\d[\d,]*\.?\d*)\s*(k|m|thousand|million)?/gi;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      let val = parseFloat(match[1].replace(/,/g, ''));
+      const suffix = (match[2] || '').toLowerCase();
+      if (suffix === 'k' || suffix === 'thousand') val *= 1000;
+      if (suffix === 'm' || suffix === 'million') val *= 1000000;
+      if (val >= 100 && val <= 100000000) amounts.push(val); // Filter noise
+    }
+    return amounts;
+  }
+
+  // Extract percentage mentions
+  function extractPercentages(text) {
+    const percs = [];
+    const regex = /(\d{1,3})\s*%/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const val = parseInt(match[1], 10);
+      if (val > 0 && val <= 100) percs.push(val);
+    }
+    return percs;
+  }
+
+  // Try to split "should I X or Y" patterns
+  function extractOptionsFromText(text) {
+    const lower = text.toLowerCase();
+
+    // Pattern: "between X and/or Y"
+    const betweenMatch = lower.match(/between\s+(.+?)\s+(?:and|or|vs\.?|versus)\s+(.+?)[\.\,\?\!]/);
+    if (betweenMatch) return [betweenMatch[1].trim(), betweenMatch[2].trim()];
+
+    // Pattern: "should I X or Y"
+    const shouldMatch = lower.match(/should\s+i\s+(.+?)\s+or\s+(.+?)[\.\,\?\!]/);
+    if (shouldMatch) return [shouldMatch[1].trim(), shouldMatch[2].trim()];
+
+    // Pattern: "deciding between X and Y"
+    const decidingMatch = lower.match(/deciding\s+(?:between|whether\s+to)\s+(.+?)\s+(?:and|or|vs\.?|versus)\s+(.+?)[\.\,\?\!]/);
+    if (decidingMatch) return [decidingMatch[1].trim(), decidingMatch[2].trim()];
+
+    // Pattern: "X vs Y" or "X or Y"
+    const vsMatch = lower.match(/^(.+?)\s+(?:vs\.?|versus|or)\s+(.+?)$/m);
+    if (vsMatch) return [vsMatch[1].trim(), vsMatch[2].trim()];
+
+    return null;
+  }
+
+  // Match text against research database
+  function matchResearch(text) {
+    const lower = text.toLowerCase();
+    const matches = [];
+
+    for (const [key, data] of Object.entries(RESEARCH)) {
+      const score = data.keywords.reduce((s, kw) => {
+        return s + (lower.includes(kw) ? (kw.length > 5 ? 3 : 1) : 0);
+      }, 0);
+      if (score > 0) matches.push({ key, data, score });
+    }
+
+    matches.sort((a, b) => b.score - a.score);
+    return matches;
+  }
+
+  // Capitalize first letter
+  function capitalize(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // Truncate and clean extracted option name
+  function cleanOptionName(raw) {
+    let name = raw.replace(/^(to |going |doing |taking |pursuing |getting |starting |accepting |keeping )/i, '');
+    name = capitalize(name.trim());
+    if (name.length > 60) name = name.slice(0, 57) + '...';
+    return name;
+  }
+
+  // Main parser: returns array of pre-filled option objects
+  function parseDescription(text, category) {
+    const extracted = extractOptionsFromText(text);
+    const amounts = extractAmounts(text);
+    const percentages = extractPercentages(text);
+    const matches = matchResearch(text);
+
+    const options = [];
+
+    if (extracted && extracted.length >= 2) {
+      // We found explicit options in the text
+      extracted.forEach((rawName, i) => {
+        const name = cleanOptionName(rawName);
+        // Try to match this specific option text against research
+        const optMatches = matchResearch(rawName);
+        const research = optMatches[0]?.data || matches[i]?.data || null;
+
+        const opt = {
+          name,
+          bestDesc: research?.bestDesc || 'Things go well',
+          bestProb: research?.bestProb || 50,
+          bestPayoff: research?.bestPayoff || (amounts[0] || 0),
+          worstDesc: research?.worstDesc || 'Things go badly',
+          worstProb: research?.worstProb || 50,
+          worstPayoff: research?.worstPayoff || 0,
+        };
+
+        // If we found amounts in text, use them to calibrate payoffs
+        if (amounts.length > 0) {
+          const relevantAmount = amounts[Math.min(i, amounts.length - 1)];
+          if (research) {
+            // Scale research payoffs relative to mentioned amounts
+            const scale = relevantAmount / Math.max(Math.abs(research.bestPayoff), 1);
+            if (scale > 0.1 && scale < 100) {
+              opt.bestPayoff = Math.round(relevantAmount * (research.bestPayoff > 0 ? 1 : -1));
+              opt.worstPayoff = Math.round(relevantAmount * (research.worstPayoff / Math.max(Math.abs(research.bestPayoff), 1)));
+            }
+          } else {
+            opt.bestPayoff = Math.round(relevantAmount);
+            opt.worstPayoff = Math.round(-relevantAmount * 0.3);
+          }
+        }
+
+        // If percentages found, use first ones for probabilities
+        if (percentages.length > i * 2) {
+          opt.bestProb = percentages[i * 2] || opt.bestProb;
+        }
+
+        options.push(opt);
+      });
+    } else if (matches.length >= 2) {
+      // Couldn't parse explicit options but matched 2+ research categories
+      matches.slice(0, 2).forEach((m, i) => {
+        const d = m.data;
+        options.push({
+          name: capitalize(m.key.replace(/_/g, ' ')),
+          bestDesc: d.bestDesc,
+          bestProb: d.bestProb,
+          bestPayoff: amounts[i] || d.bestPayoff,
+          worstDesc: d.worstDesc,
+          worstProb: d.worstProb,
+          worstPayoff: d.worstPayoff,
+        });
+      });
+    } else if (matches.length === 1) {
+      // One match — create option A from research, option B as status quo
+      const d = matches[0].data;
+      options.push({
+        name: capitalize(matches[0].key.replace(/_/g, ' ')),
+        bestDesc: d.bestDesc,
+        bestProb: d.bestProb,
+        bestPayoff: amounts[0] || d.bestPayoff,
+        worstDesc: d.worstDesc,
+        worstProb: d.worstProb,
+        worstPayoff: d.worstPayoff,
+      });
+      options.push({
+        name: 'Stay on current path',
+        bestDesc: 'Stability, predictable income, no disruption',
+        bestProb: 65,
+        bestPayoff: amounts[1] || Math.round((amounts[0] || d.bestPayoff) * 0.6),
+        worstDesc: 'Missed opportunity, growing regret',
+        worstProb: 35,
+        worstPayoff: Math.round((amounts[1] || amounts[0] || d.bestPayoff) * 0.4),
+      });
+    }
+
+    // Auto-detect category if not set
+    if (!category && matches.length > 0) {
+      const topKey = matches[0].key;
+      if (['startup', 'job_new', 'job_stay', 'freelance', 'certification'].includes(topKey)) category = 'career';
+      else if (['invest_market', 'buy_house', 'save_money'].includes(topKey)) category = 'finance';
+      else if (['raise_funding'].includes(topKey)) category = 'business';
+      else if (['degree'].includes(topKey)) category = 'education';
+      else if (['health'].includes(topKey)) category = 'health';
+      else if (['relationship', 'relocate'].includes(topKey)) category = 'relationship';
+    }
+
+    // Also try to auto-fill base rate from best match
+    let suggestedBaseRate = null;
+    let suggestedBaseFact = null;
+    if (matches.length > 0 && matches[0].data.baseRate) {
+      suggestedBaseRate = matches[0].data.baseRate;
+      suggestedBaseFact = matches[0].data.baseFact;
+    }
+
+    return { options, category, suggestedBaseRate, suggestedBaseFact, matches };
+  }
+
+  // Populate option cards from parsed data
+  function autoFillOptions(parsed) {
+    optionsContainer.innerHTML = '';
+
+    if (parsed.options.length === 0) {
+      // Fallback: empty cards
+      createOptionCard(0);
+      createOptionCard(1);
+      $('#autofill-banner').hidden = true;
+      validateOptions();
+      return;
+    }
+
+    parsed.options.forEach((opt, i) => {
+      const card = createOptionCard(i);
+      card.querySelector('.option-name').value = opt.name;
+      card.querySelector('.best-desc').value = opt.bestDesc;
+      card.querySelector('.best-prob').value = opt.bestProb;
+      card.querySelector('.best-payoff').value = opt.bestPayoff;
+      card.querySelector('.worst-desc').value = opt.worstDesc;
+      card.querySelector('.worst-prob').value = opt.worstProb;
+      card.querySelector('.worst-payoff').value = opt.worstPayoff;
+    });
+
+    // Ensure at least 2 cards
+    while (optionsContainer.children.length < 2) {
+      createOptionCard(optionsContainer.children.length);
+    }
+
+    // Show banner
+    $('#autofill-banner').hidden = false;
+
+    // Auto-fill category
+    if (parsed.category && !$('#decision-category').value) {
+      $('#decision-category').value = parsed.category;
+    }
+
+    // Store suggested base rate for Step 3
+    state._suggestedBaseRate = parsed.suggestedBaseRate;
+    state._suggestedBaseFact = parsed.suggestedBaseFact;
+
+    validateOptions();
+  }
+
+  // ================================================================
   // NAVIGATION
   // ================================================================
   $('#start-btn').addEventListener('click', () => {
@@ -321,11 +674,28 @@
         state.category = $('#decision-category').value;
         state.timeHorizon = $('#time-horizon').value;
         state.deadline = $('#decision-deadline').value;
+
+        // Parse description and auto-fill options
+        const parsed = parseDescription(state.decision, state.category);
+        autoFillOptions(parsed);
       }
       if (next === 3) {
         collectOptions();
         sunkCostInput.value = '';
         sunkCostOptionGroup.hidden = true;
+
+        // Auto-fill base rate if parser found one
+        if (state._suggestedBaseRate && !$('#base-rate-input').value) {
+          $('#base-rate-input').value = state._suggestedBaseRate;
+        }
+        // Show research fact
+        const factEl = $('#base-rate-fact');
+        if (state._suggestedBaseFact) {
+          factEl.hidden = false;
+          factEl.textContent = '📊 ' + state._suggestedBaseFact;
+        } else {
+          factEl.hidden = true;
+        }
       }
       showStep(next);
     });
