@@ -168,7 +168,7 @@
   const decisionInput = $('#decision-input');
   const step1Next = $('.next-step[data-next="2"]');
   function validateStep1() {
-    const valid = decisionInput.value.trim().length >= 20;
+    const valid = decisionInput.value.trim().length >= 10;
     step1Next.disabled = !valid;
     const aiBtn = $('#ai-analyze-btn');
     if (aiBtn) aiBtn.disabled = !valid;
@@ -414,6 +414,95 @@
       baseRate: 15,
       baseFact: 'About 15-20% of startups that actively pitch investors get pre-seed funding.',
     },
+    // ---- Everyday / daily decisions ----
+    food_eat_out: {
+      keywords: ['eat out', 'restaurant', 'takeout', 'take-out', 'dine out', 'grab food', 'order food', 'delivery', 'uber eats', 'doordash'],
+      bestProb: 70, worstProb: 30,
+      bestDesc: 'Enjoyable meal, no cooking hassle, social time',
+      worstDesc: 'Overpriced, unhealthy, regret spending',
+      bestPayoff: 8, worstPayoff: -3,
+      baseRate: null, unit: 'satisfaction',
+    },
+    food_cook: {
+      keywords: ['cook', 'cook at home', 'make food', 'meal prep', 'home cook', 'homemade'],
+      bestProb: 65, worstProb: 35,
+      bestDesc: 'Healthier, cheaper, satisfying to make',
+      worstDesc: 'Time-consuming, cleanup, might not turn out great',
+      bestPayoff: 7, worstPayoff: 2,
+      baseRate: null, unit: 'satisfaction',
+    },
+    food_choice: {
+      keywords: ['what to eat', 'what should i eat', 'pizza or', 'sushi or', 'burger or', 'salad or', 'chicken or', 'pasta or', 'tacos or', 'chinese or', 'indian or', 'thai or', 'mexican or', 'breakfast', 'lunch', 'dinner', 'snack', 'hungry'],
+      bestProb: 60, worstProb: 40,
+      bestDesc: 'Hits the spot — satisfying and enjoyable',
+      worstDesc: 'Meh — not what you were craving',
+      bestPayoff: 8, worstPayoff: 3,
+      baseRate: null, unit: 'satisfaction',
+    },
+    watch_series: {
+      keywords: ['watch', 'series', 'show', 'movie', 'netflix', 'binge', 'stream', 'tv', 'film', 'anime', 'youtube', 'documentary', 'hulu', 'disney'],
+      bestProb: 65, worstProb: 35,
+      bestDesc: 'Great entertainment, relaxing, discover something good',
+      worstDesc: 'Time wasted on something boring, couch guilt',
+      bestPayoff: 7, worstPayoff: 1,
+      baseRate: null, unit: 'enjoyment',
+    },
+    creative_activity: {
+      keywords: ['paint', 'draw', 'write', 'sketch', 'create', 'craft', 'photography', 'music', 'play guitar', 'sing', 'design', 'build something', 'journal', 'creative'],
+      bestProb: 55, worstProb: 45,
+      bestDesc: 'Flow state, genuine satisfaction, skill growth',
+      worstDesc: 'Frustration, creative block, feels like wasted effort',
+      bestPayoff: 9, worstPayoff: 2,
+      baseRate: null, unit: 'fulfillment',
+    },
+    exercise_activity: {
+      keywords: ['gym', 'run', 'running', 'workout', 'exercise', 'swim', 'yoga', 'hike', 'walk', 'bike', 'cycling', 'lift', 'jog', 'sports', 'basketball', 'football', 'tennis'],
+      bestProb: 75, worstProb: 25,
+      bestDesc: 'Energy boost, mood lift, health benefit',
+      worstDesc: 'Sore, tired, takes time from other things',
+      bestPayoff: 9, worstPayoff: 3,
+      baseRate: null, unit: 'wellbeing',
+    },
+    social_activity: {
+      keywords: ['hang out', 'friends', 'meet up', 'go out', 'party', 'date', 'social', 'visit', 'see someone', 'coffee with', 'drinks with', 'call someone'],
+      bestProb: 70, worstProb: 30,
+      bestDesc: 'Connection, fun, good memories',
+      worstDesc: 'Draining, awkward, wish you stayed home',
+      bestPayoff: 8, worstPayoff: 1,
+      baseRate: null, unit: 'enjoyment',
+    },
+    stay_in: {
+      keywords: ['stay home', 'stay in', 'relax', 'rest', 'do nothing', 'chill', 'lazy day', 'sleep in', 'recharge', 'alone time', 'introvert'],
+      bestProb: 65, worstProb: 35,
+      bestDesc: 'Recharged, restful, peaceful',
+      worstDesc: 'Bored, lonely, feel like you wasted the day',
+      bestPayoff: 7, worstPayoff: 2,
+      baseRate: null, unit: 'rest',
+    },
+    go_somewhere: {
+      keywords: ['where to go', 'trip', 'travel', 'vacation', 'weekend', 'road trip', 'day trip', 'explore', 'adventure', 'beach', 'mountain', 'park', 'museum', 'concert', 'event'],
+      bestProb: 70, worstProb: 30,
+      bestDesc: 'New experience, great memories, refreshing',
+      worstDesc: 'Expensive, exhausting, not worth the effort',
+      bestPayoff: 9, worstPayoff: 1,
+      baseRate: null, unit: 'experience',
+    },
+    shopping: {
+      keywords: ['buy', 'purchase', 'shop', 'get a new', 'upgrade', 'iphone', 'laptop', 'shoes', 'clothes', 'gadget', 'splurge', 'treat myself', 'worth buying'],
+      bestProb: 55, worstProb: 45,
+      bestDesc: 'Love it, gets good use, worth the money',
+      worstDesc: 'Buyer\'s remorse, didn\'t need it, money wasted',
+      bestPayoff: 7, worstPayoff: -4,
+      baseRate: null, unit: 'satisfaction',
+    },
+    learn_something: {
+      keywords: ['learn', 'course', 'tutorial', 'read a book', 'study', 'podcast', 'practice', 'skill', 'hobby', 'new language', 'online class'],
+      bestProb: 60, worstProb: 40,
+      bestDesc: 'New skill, personal growth, sense of progress',
+      worstDesc: 'Boring, doesn\'t stick, abandoned halfway',
+      bestPayoff: 8, worstPayoff: 2,
+      baseRate: null, unit: 'growth',
+    },
   };
 
   // Extract money amounts from text (handles $, £, €, K, M suffixes)
@@ -591,6 +680,7 @@
       else if (['degree'].includes(topKey)) category = 'education';
       else if (['health'].includes(topKey)) category = 'health';
       else if (['relationship', 'relocate'].includes(topKey)) category = 'relationship';
+      else if (['food_eat_out', 'food_cook', 'food_choice', 'watch_series', 'creative_activity', 'exercise_activity', 'social_activity', 'stay_in', 'go_somewhere', 'shopping', 'learn_something'].includes(topKey)) category = 'daily';
     }
 
     // Also try to auto-fill base rate from best match
@@ -953,10 +1043,30 @@
   // ================================================================
   // NARRATIVE GENERATION
   // ================================================================
+  // Check if current decision is a daily/casual one
+  function isDailyDecision() {
+    return isDaily(state.category, state.decision);
+  }
+
+  // Format value — uses /10 for daily, numbers/currency for serious
+  function formatValue(n) {
+    if (isDailyDecision()) {
+      return n.toFixed(1) + '/10';
+    }
+    return formatNumber(n);
+  }
+
+  // Get the unit label for daily decisions
+  function getDailyUnit() {
+    const matches = matchResearch(state.decision);
+    if (matches.length > 0 && matches[0].data.unit) return matches[0].data.unit;
+    return 'satisfaction';
+  }
+
   function runAnalysis() {
     const evs = calculateEV();
     const bayesResults = calculateBayes(evs);
-    const kellyResults = calculateKelly(evs);
+    const kellyResults = isDailyDecision() ? null : calculateKelly(evs);
 
     state.analysisResults = { evs, bayesResults, kellyResults };
 
@@ -967,11 +1077,22 @@
 
     // Verdict hero
     if (evGap > 0) {
-      $('.verdict-heading').textContent = `Go with "${best.name}"`;
-      $('#verdict-sub').textContent = `The numbers give it an edge of ${formatNumber(evGap)} over your next best option.`;
+      if (isDailyDecision()) {
+        const unit = getDailyUnit();
+        $('.verdict-heading').textContent = `Go with "${best.name}"`;
+        $('#verdict-sub').textContent = `It scores ${formatValue(best.ev)} on ${unit} — ${formatValue(evGap)} higher than the alternative.`;
+      } else {
+        $('.verdict-heading').textContent = `Go with "${best.name}"`;
+        $('#verdict-sub').textContent = `The numbers give it an edge of ${formatNumber(evGap)} over your next best option.`;
+      }
     } else {
-      $('.verdict-heading').textContent = 'Too close to call on numbers alone';
-      $('#verdict-sub').textContent = 'Consider what matters most beyond the math — timing, energy, optionality.';
+      if (isDailyDecision()) {
+        $('.verdict-heading').textContent = 'Both are solid picks';
+        $('#verdict-sub').textContent = 'They score about the same — go with your gut on this one.';
+      } else {
+        $('.verdict-heading').textContent = 'Too close to call on numbers alone';
+        $('#verdict-sub').textContent = 'Consider what matters most beyond the math — timing, energy, optionality.';
+      }
     }
 
     renderEV(evs, best);
@@ -979,7 +1100,8 @@
     renderSunkCost(evs, best);
     renderBayes(evs, bayesResults, best);
     renderSurvivorship();
-    renderKelly(kellyResults, evs);
+    if (!isDailyDecision()) renderKelly(kellyResults, evs);
+    else { $('#kelly-narrative').innerHTML = '<p>For a daily decision, sizing doesn\'t apply — just commit and enjoy it.</p>'; $('#kelly-visual').innerHTML = ''; $('#kelly-math').textContent = ''; }
     renderSensitivity(evs);
     renderFinalVerdict(evs, best, second, bayesResults, kellyResults);
     renderExpiryBanner();
@@ -988,16 +1110,29 @@
 
   // --- Section 1: Expected Value ---
   function renderEV(evs, best) {
+    const daily = isDailyDecision();
+    const unit = daily ? getDailyUnit() : '';
     let html = '';
+
     evs.forEach(opt => {
       html += `<p><strong>${escapeHtml(opt.name)}:</strong> `;
-      html += `If things go well (${escapeHtml(opt.bestDesc)}, ~${Math.round(opt.bestProb * 100)}% chance), the value is ${formatNumber(opt.bestPayoff)}. `;
-      html += `If things go badly (${escapeHtml(opt.worstDesc)}, ~${Math.round(opt.worstProb * 100)}% chance), it's ${formatNumber(opt.worstPayoff)}. `;
-      html += `Weighted together: <em>${formatNumber(opt.ev)}</em>.</p>`;
+      if (daily) {
+        html += `If it goes well (${escapeHtml(opt.bestDesc)}, ~${Math.round(opt.bestProb * 100)}% chance), ${unit} score: ${formatValue(opt.bestPayoff)}. `;
+        html += `If it doesn't land (${escapeHtml(opt.worstDesc)}, ~${Math.round(opt.worstProb * 100)}% chance), score: ${formatValue(opt.worstPayoff)}. `;
+        html += `Weighted score: <em>${formatValue(opt.ev)}</em>.</p>`;
+      } else {
+        html += `If things go well (${escapeHtml(opt.bestDesc)}, ~${Math.round(opt.bestProb * 100)}% chance), the value is ${formatNumber(opt.bestPayoff)}. `;
+        html += `If things go badly (${escapeHtml(opt.worstDesc)}, ~${Math.round(opt.worstProb * 100)}% chance), it's ${formatNumber(opt.worstPayoff)}. `;
+        html += `Weighted together: <em>${formatNumber(opt.ev)}</em>.</p>`;
+      }
     });
 
     if (evs.length > 1 && best.ev > evs.filter(e => e.index !== best.index)[0]?.ev) {
-      html += `<span class="callout">By expected value alone, <strong>"${escapeHtml(best.name)}"</strong> is the stronger path.</span>`;
+      if (daily) {
+        html += `<span class="callout">By ${unit} score, <strong>"${escapeHtml(best.name)}"</strong> wins this round.</span>`;
+      } else {
+        html += `<span class="callout">By expected value alone, <strong>"${escapeHtml(best.name)}"</strong> is the stronger path.</span>`;
+      }
     }
 
     $('#ev-narrative').innerHTML = html;
@@ -1009,7 +1144,7 @@
       return `<div class="ev-bar-item">
         <div class="ev-bar-header">
           <span class="ev-bar-name">${letterForIndex(opt.index)}. ${escapeHtml(opt.name)}</span>
-          <span class="ev-bar-value ${isBest ? 'best' : 'not-best'}">${formatNumber(opt.ev)}</span>
+          <span class="ev-bar-value ${isBest ? 'best' : 'not-best'}">${formatValue(opt.ev)}</span>
         </div>
         <div class="ev-bar-track"><div class="ev-bar-fill ${isBest ? 'best' : 'not-best'}" style="width:${width}%"></div></div>
       </div>`;
@@ -1239,10 +1374,59 @@
     const container = $('#final-verdict');
     let html = '<div class="narrative">';
 
+    const daily = isDailyDecision();
+    const unit = daily ? getDailyUnit() : '';
+
     if (evs.length >= 2 && best.ev > second.ev) {
-      html += `<p><strong>Your optimal path is "${escapeHtml(best.name)}"</strong> — expected value of ${formatNumber(best.ev)}, which is ${formatNumber(best.ev - second.ev)} more than "${escapeHtml(second.name)}".</p>`;
+      if (daily) {
+        html += `<p><strong>Go with "${escapeHtml(best.name)}"</strong> — it scores ${formatValue(best.ev)} on ${unit}, beating "${escapeHtml(second.name)}" by ${formatValue(best.ev - second.ev)}.</p>`;
+      } else {
+        html += `<p><strong>Your optimal path is "${escapeHtml(best.name)}"</strong> — expected value of ${formatNumber(best.ev)}, which is ${formatNumber(best.ev - second.ev)} more than "${escapeHtml(second.name)}".</p>`;
+      }
     } else {
-      html += '<p>The options are very close. The decision probably comes down to factors the math can\'t capture — your energy, timing, and which path excites you more.</p>';
+      if (daily) {
+        html += '<p>Both options score about the same — this is a coin-flip in the best way. Pick whichever feels right in the moment.</p>';
+      } else {
+        html += '<p>The options are very close. The decision probably comes down to factors the math can\'t capture — your energy, timing, and which path excites you more.</p>';
+      }
+    }
+
+    // Daily context insights from follow-up
+    if (daily && state.context) {
+      const ctx = state.context;
+      const dailyInsights = [];
+
+      if (ctx.mood_right_now) {
+        const moodAdvice = {
+          'energized': 'You\'re feeling energized — lean into the more active or challenging option.',
+          'chill': 'You\'re in chill mode — favor the lower-effort, more relaxing choice.',
+          'tired': 'Low battery today. Go with whatever requires the least activation energy — you\'ll thank yourself.',
+          'bored': 'You\'re bored — pick the option that breaks your routine or gives you something new.',
+          'stressed': 'Stressed out — prioritize the option that gives you genuine relief, not just distraction.',
+        };
+        if (moodAdvice[ctx.mood_right_now]) dailyInsights.push(moodAdvice[ctx.mood_right_now]);
+      }
+
+      if (ctx.recent_pattern) {
+        const patternAdvice = {
+          'screens': 'You\'ve had too much screen time lately — if one option gets you off screens, that\'s a bonus.',
+          'work': 'You\'ve been grinding — choose rest or play over more productivity.',
+          'junk-food': 'Too much junk food recently — a healthier choice might actually feel better right now.',
+          'staying-in': 'You\'ve been staying in a lot — getting out, even briefly, will probably do more for you.',
+        };
+        if (patternAdvice[ctx.recent_pattern]) dailyInsights.push(patternAdvice[ctx.recent_pattern]);
+      }
+
+      if (ctx.priority_today) {
+        const priorityLabels = { fun: 'fun', health: 'health', productivity: 'progress', money: 'saving money', rest: 'rest' };
+        dailyInsights.push(`Your priority right now is <strong>${priorityLabels[ctx.priority_today] || ctx.priority_today}</strong> — weigh that above the raw score.`);
+      }
+
+      if (dailyInsights.length > 0) {
+        html += '<div class="context-insights"><h4>Tuned to your moment</h4>';
+        dailyInsights.forEach(insight => { html += `<p>${insight}</p>`; });
+        html += '</div>';
+      }
     }
 
     const warnCount = [
@@ -1735,14 +1919,104 @@
     },
   ];
 
+  // Lighter follow-up questions for daily/casual decisions
+  const DAILY_FOLLOWUP_QUESTIONS = [
+    {
+      id: 'mood_right_now',
+      question: "What's your vibe right now?",
+      type: 'options',
+      options: [
+        { label: 'Energized — ready to go', value: 'energized' },
+        { label: 'Chill — want something easy', value: 'chill' },
+        { label: 'Tired — low battery', value: 'tired' },
+        { label: 'Bored — need stimulation', value: 'bored' },
+        { label: 'Stressed — need relief', value: 'stressed' },
+      ],
+      triggers: () => true,
+    },
+    {
+      id: 'time_available',
+      question: "How much time do you have?",
+      type: 'options',
+      options: [
+        { label: '30 min or less', value: '30min' },
+        { label: '1–2 hours', value: '1-2h' },
+        { label: 'Half the day', value: 'half-day' },
+        { label: 'Whole day free', value: 'full-day' },
+      ],
+      triggers: () => true,
+    },
+    {
+      id: 'solo_or_social',
+      question: "Solo or with people?",
+      type: 'options',
+      options: [
+        { label: 'Solo — me time', value: 'solo' },
+        { label: 'With a friend or partner', value: 'duo' },
+        { label: 'Group / social', value: 'group' },
+        { label: 'Doesn\'t matter', value: 'any' },
+      ],
+      triggers: (desc) => /friend|hang|social|alone|partner|date|group|together|someone/i.test(desc) || !/eat|food|pizza|sushi|cook|hungry/i.test(desc),
+    },
+    {
+      id: 'priority_today',
+      question: "What matters most to you right now?",
+      type: 'options',
+      options: [
+        { label: 'Fun / enjoyment', value: 'fun' },
+        { label: 'Health / feeling good', value: 'health' },
+        { label: 'Productivity / progress', value: 'productivity' },
+        { label: 'Saving money', value: 'money' },
+        { label: 'Rest / recovery', value: 'rest' },
+      ],
+      triggers: () => true,
+    },
+    {
+      id: 'recent_pattern',
+      question: "Have you been doing a lot of one thing lately?",
+      type: 'options',
+      options: [
+        { label: 'Too much screen time', value: 'screens' },
+        { label: 'Too much work / grind', value: 'work' },
+        { label: 'Too much junk food', value: 'junk-food' },
+        { label: 'Too much staying in', value: 'staying-in' },
+        { label: 'Nah, pretty balanced', value: 'balanced' },
+      ],
+      triggers: () => true,
+    },
+    {
+      id: 'budget_today',
+      question: "What's your budget for this?",
+      type: 'options',
+      options: [
+        { label: 'Free / $0', value: 'free' },
+        { label: 'A little ($5-20)', value: 'low' },
+        { label: 'Moderate ($20-50)', value: 'moderate' },
+        { label: 'Treat yourself ($50+)', value: 'splurge' },
+      ],
+      triggers: (desc) => /eat|food|restaurant|buy|shop|ticket|movie|concert|trip|go out|order|delivery/i.test(desc),
+    },
+  ];
+
   let followupQueue = [];
   let followupIndex = 0;
   let followupAnswers = {};
 
+  function isDaily(category, description) {
+    if (category === 'daily') return true;
+    const dailyKeys = ['food_eat_out', 'food_cook', 'food_choice', 'watch_series', 'creative_activity', 'exercise_activity', 'social_activity', 'stay_in', 'go_somewhere', 'shopping', 'learn_something'];
+    const matches = matchResearch(description);
+    return matches.length > 0 && dailyKeys.includes(matches[0].key);
+  }
+
   function buildFollowupQueue(description, category) {
-    // Select questions relevant to this person's situation
+    if (isDaily(category, description)) {
+      // Lighter, faster questions for everyday decisions
+      const relevant = DAILY_FOLLOWUP_QUESTIONS.filter(q => q.triggers(description, category));
+      return relevant.slice(0, 3); // Max 3 for daily — keep it snappy
+    }
+    // Serious decisions: full personalization
     const relevant = FOLLOWUP_QUESTIONS.filter(q => q.triggers(description, category));
-    // Cap at 6 questions to keep it conversational, not interrogative
     return relevant.slice(0, 6);
   }
 
@@ -1760,6 +2034,26 @@
     followupIndex = 0;
     followupQueue = buildFollowupQueue(state.decision, state.category);
 
+    // Adapt header for daily vs serious
+    const daily = isDaily(state.category, state.decision);
+    const headerH4 = chatEl.querySelector('.followup-header h4');
+    const headerP = chatEl.querySelector('.followup-sub');
+    if (daily) {
+      headerH4.textContent = 'Quick context check';
+      headerP.innerHTML = 'A couple fast questions so the answer fits <em>your</em> moment.';
+    } else {
+      headerH4.textContent = 'Let me understand your world';
+      headerP.innerHTML = 'A few quick questions so the analysis fits <em>your</em> life, not a generic one.';
+    }
+
+    // Update done text for daily
+    const doneText = chatEl.querySelector('.followup-done-text');
+    if (doneText) {
+      doneText.textContent = daily
+        ? 'Got it — running the numbers on this real quick.'
+        : 'Got it — I have what I need. Running your personalized analysis now.';
+    }
+
     // Short delay then show first question
     setTimeout(() => showNextFollowupQuestion(), 600);
   }
@@ -1776,8 +2070,9 @@
       inputArea.hidden = true;
       doneArea.hidden = false;
       doneArea.classList.add('followup-fade-in');
-      // Collect into state.context with camelCase keys
+      // Collect into state.context — merge all answers (serious + daily)
       state.context = {
+        // Serious decision keys (camelCase)
         location: followupAnswers.location || '',
         lifeStage: followupAnswers.life_stage || '',
         dependents: followupAnswers.dependents || '',
@@ -1789,6 +2084,13 @@
         supportNetwork: followupAnswers.support_network || '',
         timePressure: followupAnswers.time_pressure || '',
         pastAttempts: followupAnswers.past_attempts || '',
+        // Daily decision keys (keep underscores for direct access)
+        mood_right_now: followupAnswers.mood_right_now || '',
+        time_available: followupAnswers.time_available || '',
+        solo_or_social: followupAnswers.solo_or_social || '',
+        priority_today: followupAnswers.priority_today || '',
+        recent_pattern: followupAnswers.recent_pattern || '',
+        budget_today: followupAnswers.budget_today || '',
       };
       return;
     }
