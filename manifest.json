@@ -29,10 +29,10 @@
       "description": "Get a clear answer to any decision"
     },
     {
-      "name": "Spin the Wheel",
-      "short_name": "Spin",
+      "name": "Hot Seat",
+      "short_name": "Hot Seat",
       "url": "/?action=spin",
-      "description": "Random question game — best answer wins"
+      "description": "Random question drops — best answer wins"
     },
     {
       "name": "History",

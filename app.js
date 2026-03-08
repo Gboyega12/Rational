@@ -2751,7 +2751,7 @@
   });
 
   // ================================================================
-  // SPIN THE WHEEL — Game mode
+  // HOT SEAT — Game mode
   // ================================================================
   const spinState = {
     gameCode: null,
@@ -3041,7 +3041,7 @@
     const code = spinState.gameCode;
     const url = `${window.location.origin}?spin=${code}`;
     if (navigator.share) {
-      navigator.share({ title: 'Join my Rational game', text: 'Spin the wheel — random question, best answer wins!', url }).catch(() => {});
+      navigator.share({ title: 'Join my Hot Seat game', text: 'Hot Seat — random question drops, best answer wins!', url }).catch(() => {});
     } else if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(() => {
         $('#spin-copy-btn').innerHTML = '<span style="font-size:12px">Copied!</span>';

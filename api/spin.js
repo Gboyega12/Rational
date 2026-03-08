@@ -1,4 +1,4 @@
-// Vercel Serverless Function — Spin the Wheel game rooms
+// Vercel Serverless Function — Hot Seat game rooms
 // In-memory store (resets on cold start)
 
 const games = new Map();
@@ -269,7 +269,7 @@ async function judgeAnswers(apiKey, game) {
     .map(p => `**${p.name}**: "${p.answer}"`)
     .join('\n\n');
 
-  const systemPrompt = `You are the judge of a fun group game called "Spin the Wheel". A random question was asked and players gave their answers. Your job is to rank them and pick a winner.
+  const systemPrompt = `You are the judge of a fun group game called "Hot Seat". A random question was asked and players gave their answers. Your job is to rank them and pick a winner.
 
 JUDGING CRITERIA:
 - Creativity and originality of the answer
