@@ -3036,10 +3036,20 @@
     }, 4200);
   });
 
-  // Copy game code
+  // Copy game code as invite link
   $('#spin-copy-btn').addEventListener('click', () => {
-    const code = $('#spin-room-code').textContent;
-    if (navigator.clipboard) navigator.clipboard.writeText(code);
+    const code = spinState.gameCode;
+    const url = `${window.location.origin}?spin=${code}`;
+    if (navigator.share) {
+      navigator.share({ title: 'Join my Rational game', text: 'Spin the wheel — random question, best answer wins!', url }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        $('#spin-copy-btn').innerHTML = '<span style="font-size:12px">Copied!</span>';
+        setTimeout(() => {
+          $('#spin-copy-btn').innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 11V3h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+        }, 2000);
+      });
+    }
   });
 
   // Voice input for spin answers
@@ -3195,8 +3205,17 @@
   const urlParams = new URLSearchParams(window.location.search);
   const urlAction = urlParams.get('action');
   const urlDebate = urlParams.get('debate');
+  const urlSpin = urlParams.get('spin');
 
-  if (urlDebate) {
+  if (urlSpin) {
+    // Deep link into spin game
+    showScreen('spin');
+    resetSpinLobby();
+    $('#spin-join-fields').hidden = false;
+    $('#spin-join-code').value = urlSpin.toUpperCase();
+    $('#spin-join-name').focus();
+    window.history.replaceState({}, '', '/');
+  } else if (urlDebate) {
     // Deep link into debate room
     showScreen('debate');
     resetDebateLobby();
