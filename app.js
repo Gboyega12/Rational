@@ -2311,10 +2311,378 @@
     window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
   }
 
+  // ================================================================
+  // DEBATE — Multi-user argument settler
+  // ================================================================
+  const debateState = {
+    roomCode: null,
+    participantId: null,
+    pollInterval: null,
+    lastStatus: null,
+  };
+
+  // Entry point
+  const debateEntryBtn = $('#debate-entry-btn');
+  if (debateEntryBtn) {
+    debateEntryBtn.addEventListener('click', () => {
+      showScreen('debate');
+      resetDebateLobby();
+    });
+  }
+
+  $('#debate-back').addEventListener('click', () => {
+    stopDebatePolling();
+    showScreen('home');
+    initHome();
+  });
+
+  function resetDebateLobby() {
+    $('#debate-lobby').hidden = false;
+    $('#debate-room').hidden = true;
+    $('#debate-verdict').hidden = true;
+    $('#debate-create-fields').hidden = true;
+    $('#debate-join-fields').hidden = true;
+    $('#debate-error').hidden = true;
+    debateState.roomCode = null;
+    debateState.participantId = null;
+    stopDebatePolling();
+  }
+
+  // Toggle create/join forms
+  $('#debate-create-card').addEventListener('click', (e) => {
+    if (e.target.closest('input, button')) return;
+    const fields = $('#debate-create-fields');
+    fields.hidden = !fields.hidden;
+    if (!fields.hidden) {
+      $('#debate-join-fields').hidden = true;
+      $('#debate-topic').focus();
+    }
+  });
+
+  $('#debate-join-card').addEventListener('click', (e) => {
+    if (e.target.closest('input, button')) return;
+    const fields = $('#debate-join-fields');
+    fields.hidden = !fields.hidden;
+    if (!fields.hidden) {
+      $('#debate-create-fields').hidden = true;
+      $('#debate-join-code').focus();
+    }
+  });
+
+  // CREATE room
+  $('#debate-create-btn').addEventListener('click', async () => {
+    const topic = $('#debate-topic').value.trim();
+    const name = $('#debate-creator-name').value.trim() || 'Person 1';
+    if (topic.length < 5) return showDebateError('Topic needs to be at least 5 characters.');
+
+    showDebateError('');
+    $('#debate-create-btn').disabled = true;
+    $('#debate-create-btn').textContent = 'Creating...';
+
+    try {
+      const res = await fetch('/api/room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', topic, creatorName: name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create room');
+
+      debateState.roomCode = data.room.code;
+      debateState.participantId = data.participantId;
+      enterDebateRoom(data.room);
+    } catch (err) {
+      showDebateError(err.message);
+    } finally {
+      $('#debate-create-btn').disabled = false;
+      $('#debate-create-btn').textContent = 'Create room';
+    }
+  });
+
+  // JOIN room
+  $('#debate-join-btn').addEventListener('click', async () => {
+    const code = $('#debate-join-code').value.trim().toUpperCase();
+    const name = $('#debate-join-name').value.trim() || '';
+    if (code.length !== 6) return showDebateError('Enter a 6-letter room code.');
+
+    showDebateError('');
+    $('#debate-join-btn').disabled = true;
+    $('#debate-join-btn').textContent = 'Joining...';
+
+    try {
+      const res = await fetch('/api/room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'join', code, name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to join');
+
+      debateState.roomCode = data.room.code;
+      debateState.participantId = data.participantId;
+      enterDebateRoom(data.room);
+    } catch (err) {
+      showDebateError(err.message);
+    } finally {
+      $('#debate-join-btn').disabled = false;
+      $('#debate-join-btn').textContent = 'Join';
+    }
+  });
+
+  function showDebateError(msg) {
+    const el = $('#debate-error');
+    if (!msg) { el.hidden = true; return; }
+    el.textContent = msg;
+    el.hidden = false;
+  }
+
+  // Enter room view
+  function enterDebateRoom(room) {
+    $('#debate-lobby').hidden = true;
+    $('#debate-room').hidden = false;
+    $('#debate-verdict').hidden = true;
+
+    $('#debate-room-topic').textContent = room.topic;
+    $('#debate-room-code').textContent = room.code;
+
+    // Show/hide argument input based on whether we already submitted
+    const me = room.participants.find(p => p.id === debateState.participantId);
+    if (me && me.hasArgument) {
+      $('#debate-my-arg').hidden = true;
+      $('#debate-my-arg-done').hidden = false;
+      $('#debate-submitted-text').textContent = me.argument;
+    } else {
+      $('#debate-my-arg').hidden = false;
+      $('#debate-my-arg-done').hidden = true;
+    }
+
+    updateDebateParticipants(room);
+    startDebatePolling();
+  }
+
+  function updateDebateParticipants(room) {
+    const container = $('#debate-participants');
+    const withArgs = room.participants.filter(p => p.hasArgument);
+    const waiting = room.participants.filter(p => !p.hasArgument);
+
+    container.innerHTML = room.participants.map(p => {
+      const isMe = p.id === debateState.participantId;
+      return `<div class="debate-participant ${p.hasArgument ? 'has-arg' : 'no-arg'} ${isMe ? 'is-me' : ''}">
+        <span class="debate-p-name">${escapeHtml(p.name)}${isMe ? ' (you)' : ''}</span>
+        <span class="debate-p-status">${p.hasArgument ? 'Ready' : 'Thinking...'}</span>
+        ${p.hasArgument && p.argument ? `<p class="debate-p-arg">${escapeHtml(p.argument)}</p>` : ''}
+      </div>`;
+    }).join('');
+
+    // Show "Settle this" button when 2+ arguments are in
+    const canDecide = withArgs.length >= 2 && room.status === 'arguing';
+    $('#debate-decide-btn').hidden = !canDecide;
+
+    // Show waiting indicator
+    $('#debate-waiting').hidden = waiting.length === 0 || room.status !== 'arguing';
+  }
+
+  // Submit argument
+  $('#debate-submit-arg-btn').addEventListener('click', async () => {
+    const argument = $('#debate-argument-input').value.trim();
+    if (argument.length < 5) return showDebateError('Write at least a sentence for your argument.');
+
+    showDebateError('');
+    $('#debate-submit-arg-btn').disabled = true;
+    $('#debate-submit-arg-btn').textContent = 'Submitting...';
+
+    try {
+      const res = await fetch('/api/room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'argue',
+          code: debateState.roomCode,
+          participantId: debateState.participantId,
+          argument,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit');
+
+      $('#debate-my-arg').hidden = true;
+      $('#debate-my-arg-done').hidden = false;
+      $('#debate-submitted-text').textContent = argument;
+      updateDebateParticipants(data.room);
+    } catch (err) {
+      showDebateError(err.message);
+    } finally {
+      $('#debate-submit-arg-btn').disabled = false;
+      $('#debate-submit-arg-btn').textContent = 'Submit my argument';
+    }
+  });
+
+  // Trigger AI verdict
+  $('#debate-decide-btn').addEventListener('click', async () => {
+    $('#debate-decide-btn').disabled = true;
+    $('#debate-decide-btn').querySelector('span').textContent = 'Analyzing...';
+
+    try {
+      const res = await fetch('/api/room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'decide', code: debateState.roomCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Analysis failed');
+
+      renderDebateVerdict(data.room);
+    } catch (err) {
+      showDebateError(err.message);
+      $('#debate-decide-btn').disabled = false;
+      $('#debate-decide-btn').querySelector('span').textContent = 'Settle this';
+    }
+  });
+
+  // Copy room code
+  $('#debate-copy-btn').addEventListener('click', () => {
+    const code = debateState.roomCode;
+    const url = `${window.location.origin}?debate=${code}`;
+    if (navigator.share) {
+      navigator.share({ title: 'Join my Rational debate', text: `Join the debate: ${$('#debate-room-topic').textContent}`, url }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        $('#debate-copy-btn').innerHTML = '<span style="font-size:12px">Copied!</span>';
+        setTimeout(() => {
+          $('#debate-copy-btn').innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 11V3h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+        }, 2000);
+      });
+    }
+  });
+
+  // Polling — sync room state every 3s
+  function startDebatePolling() {
+    stopDebatePolling();
+    debateState.pollInterval = setInterval(pollDebateRoom, 3000);
+  }
+
+  function stopDebatePolling() {
+    if (debateState.pollInterval) {
+      clearInterval(debateState.pollInterval);
+      debateState.pollInterval = null;
+    }
+  }
+
+  async function pollDebateRoom() {
+    if (!debateState.roomCode) return;
+    try {
+      const res = await fetch(`/api/room?code=${debateState.roomCode}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const room = data.room;
+
+      // If verdict came in (someone else triggered it), show it
+      if (room.status === 'decided' && debateState.lastStatus !== 'decided') {
+        renderDebateVerdict(room);
+      } else if (room.status === 'analyzing' && debateState.lastStatus !== 'analyzing') {
+        // Show analyzing state
+        $('#debate-decide-btn').hidden = true;
+        $('#debate-waiting').hidden = false;
+        $('#debate-waiting').querySelector('p').textContent = 'AI is analyzing all arguments...';
+      } else {
+        updateDebateParticipants(room);
+      }
+
+      debateState.lastStatus = room.status;
+    } catch {}
+  }
+
+  // Render verdict
+  function renderDebateVerdict(room) {
+    stopDebatePolling();
+    const v = room.verdict;
+    if (!v) return;
+
+    $('#debate-room').hidden = true;
+    $('#debate-verdict').hidden = false;
+
+    $('#debate-verdict-headline').textContent = v.headline || 'The verdict is in';
+    $('#debate-verdict-winner').textContent = v.winner ? `Winner: ${v.winner}` : '';
+    $('#debate-verdict-summary').textContent = v.summary || '';
+
+    // Sections
+    const sectionsEl = $('#debate-verdict-sections');
+    sectionsEl.innerHTML = '';
+    if (v.sections && v.sections.length > 0) {
+      v.sections.forEach((sec, i) => {
+        const el = document.createElement('div');
+        el.className = 'analysis-section reveal-section';
+        el.innerHTML = `
+          <h3 class="analysis-section-title">
+            <span class="why-num">${String(i + 1).padStart(2, '0')}</span>
+            ${escapeHtml(sec.title)}
+          </h3>
+          <div class="narrative">${formatAIContent(sec.content)}</div>`;
+        sectionsEl.appendChild(el);
+      });
+    }
+
+    // Common ground
+    if (v.common_ground) {
+      $('#debate-common-ground').hidden = false;
+      $('#debate-common-ground-text').textContent = v.common_ground;
+    }
+
+    // Compromise
+    if (v.compromise) {
+      $('#debate-compromise').hidden = false;
+      $('#debate-compromise-text').textContent = v.compromise;
+    }
+
+    // Follow-up questions
+    if (v.followup_questions && v.followup_questions.length > 0) {
+      const fuEl = $('#debate-verdict-followups');
+      fuEl.hidden = false;
+      fuEl.innerHTML = `
+        <h4>Questions that could help resolve this further</h4>
+        ${v.followup_questions.map(q => `
+          <div class="ai-followup-item">
+            <p class="ai-followup-q">${escapeHtml(q.question)}</p>
+            ${q.for ? `<p class="ai-followup-why">For ${escapeHtml(q.for)}</p>` : ''}
+          </div>
+        `).join('')}`;
+    }
+
+    // Trigger reveal animations
+    setTimeout(observeRevealSections, 100);
+  }
+
+  // New debate button
+  $('#debate-new-btn').addEventListener('click', () => {
+    showScreen('debate');
+    resetDebateLobby();
+  });
+
+  // Share verdict
+  $('#debate-share-btn').addEventListener('click', () => {
+    const headline = $('#debate-verdict-headline').textContent;
+    const summary = $('#debate-verdict-summary').textContent;
+    if (navigator.share) {
+      navigator.share({ title: 'Rational Verdict', text: `${headline}\n\n${summary}` }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(`${headline}\n\n${summary}`);
+    }
+  });
+
   // URL shortcuts
   const urlParams = new URLSearchParams(window.location.search);
   const urlAction = urlParams.get('action');
-  if (urlAction === 'new') {
+  const urlDebate = urlParams.get('debate');
+
+  if (urlDebate) {
+    // Deep link into debate room
+    showScreen('debate');
+    resetDebateLobby();
+    $('#debate-join-fields').hidden = false;
+    $('#debate-join-code').value = urlDebate.toUpperCase();
+    $('#debate-join-name').focus();
+    window.history.replaceState({}, '', '/');
+  } else if (urlAction === 'new') {
     decisionInput.focus();
     window.history.replaceState({}, '', '/');
   } else if (urlAction === 'dashboard') {
