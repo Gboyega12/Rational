@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Rational — your daily decision partner. Ask anything, get a clear answer backed by math.">
+  <meta name="description" content="Rational — settle arguments with facts or make smarter decisions. AI-powered, voice-first.">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,7 +21,7 @@
 
   <main id="main-content">
 
-    <!-- ====== HOME — Journal-style voice-first prompt ====== -->
+    <!-- ====== HOME — Two-door hub ====== -->
     <section id="home" class="screen active" aria-labelledby="home-heading">
       <div class="container home-wrap">
 
@@ -41,37 +41,97 @@
         <!-- Dynamic greeting -->
         <div class="greeting" id="greeting-area">
           <h1 id="home-heading">What's on your mind?</h1>
-          <p id="greeting-sub">Ask me anything — big life decisions or what to eat for dinner.</p>
+          <p id="greeting-sub">Two tools. One brain. Zero BS.</p>
         </div>
 
-        <!-- Recent questions (from memory) -->
+        <!-- Two doors -->
+        <div class="home-doors">
+
+          <!-- Door 1: Settle an argument -->
+          <button type="button" class="home-door door-debate" id="debate-entry-btn">
+            <div class="door-glyph">
+              <svg class="glyph-icon glyph-debate" viewBox="0 0 48 48" fill="none">
+                <path d="M8 12h20v16H14l-6 6v-6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M20 8h20v16H26l-6 6v-6" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.4"/>
+                <circle cx="15" cy="20" r="1.5" fill="currentColor" class="glyph-dot glyph-dot-1"/>
+                <circle cx="21" cy="20" r="1.5" fill="currentColor" class="glyph-dot glyph-dot-2"/>
+                <circle cx="27" cy="16" r="1.5" fill="currentColor" class="glyph-dot glyph-dot-3" opacity="0.4"/>
+              </svg>
+            </div>
+            <div class="door-text">
+              <h2 class="door-title">Settle an argument</h2>
+              <p class="door-desc">Everyone argues their side. AI picks the winner with facts.</p>
+            </div>
+            <svg class="door-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 10h8M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+
+          <!-- Door 2: Personal decision -->
+          <button type="button" class="home-door door-decide" id="decide-entry-btn">
+            <div class="door-glyph">
+              <svg class="glyph-icon glyph-decide" viewBox="0 0 48 48" fill="none">
+                <circle cx="24" cy="24" r="14" stroke="currentColor" stroke-width="1.5" opacity="0.2"/>
+                <path d="M24 10v14l10 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="24" cy="24" r="3" fill="currentColor" class="glyph-center"/>
+                <circle cx="24" cy="8" r="2" fill="currentColor" class="glyph-orbit glyph-orbit-1" opacity="0.6"/>
+                <circle cx="38" cy="30" r="2" fill="currentColor" class="glyph-orbit glyph-orbit-2" opacity="0.4"/>
+                <circle cx="10" cy="30" r="2" fill="currentColor" class="glyph-orbit glyph-orbit-3" opacity="0.3"/>
+              </svg>
+            </div>
+            <div class="door-text">
+              <h2 class="door-title">Make a decision</h2>
+              <p class="door-desc">Ask anything. Get a clear answer backed by 12 mental models.</p>
+            </div>
+            <svg class="door-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 10h8M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+
+        </div>
+
+        <!-- Recent questions -->
         <div id="recent-questions" class="recent-questions" hidden>
           <p class="recent-label">Recent</p>
           <div id="recent-list" class="recent-list"></div>
         </div>
 
-        <!-- Voice-first input -->
+      </div>
+    </section>
+
+    <!-- ====== DECIDE — Voice-first personal decision input ====== -->
+    <section id="decide-input" class="screen" aria-labelledby="decide-heading">
+      <div class="container decide-wrap">
+
+        <button type="button" class="back-link" id="decide-back">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back
+        </button>
+
+        <div class="decide-header">
+          <div class="door-glyph door-glyph-sm">
+            <svg class="glyph-icon glyph-decide" viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="14" stroke="currentColor" stroke-width="1.5" opacity="0.2"/>
+              <path d="M24 10v14l10 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="24" cy="24" r="3" fill="currentColor" class="glyph-center"/>
+            </svg>
+          </div>
+          <h2 id="decide-heading">What's the decision?</h2>
+          <p class="decide-sub">Speak it or type it. Big or small — I'll break it down.</p>
+        </div>
+
         <div class="input-dock">
+          <button type="button" class="mic-btn mic-btn-lg" id="mic-btn" aria-label="Speak your question">
+            <div class="mic-ring" id="mic-ring"></div>
+            <svg class="mic-icon" width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M5 12a7 7 0 0014 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 19v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg class="mic-stop" width="28" height="28" viewBox="0 0 24 24" fill="none" style="display:none"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>
+            <canvas id="voice-waveform" class="mic-waveform" width="120" height="32"></canvas>
+          </button>
+          <p class="mic-hint" id="mic-hint">Tap to speak</p>
+
           <div class="input-row">
-            <textarea id="decision-input" class="journal-input" rows="1" placeholder="What should I do about..." maxlength="3000" aria-label="What's your question?"></textarea>
+            <textarea id="decision-input" class="journal-input" rows="2" placeholder="Or type: Should I drop out to start my company..." maxlength="3000" aria-label="What's your question?"></textarea>
             <button type="button" class="send-btn" id="send-btn" disabled aria-label="Analyze">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-7 14-2-5-5-2z" fill="currentColor"/></svg>
             </button>
           </div>
-          <button type="button" class="mic-btn" id="mic-btn" aria-label="Speak your question">
-            <div class="mic-ring" id="mic-ring"></div>
-            <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M5 12a7 7 0 0014 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 19v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <svg class="mic-stop" width="24" height="24" viewBox="0 0 24 24" fill="none" style="display:none"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>
-            <canvas id="voice-waveform" class="mic-waveform" width="120" height="32"></canvas>
-          </button>
-          <p class="mic-hint" id="mic-hint">Tap to speak</p>
         </div>
-
-        <!-- Debate entry point -->
-        <button type="button" class="debate-entry-btn" id="debate-entry-btn">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h9M3 15h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="16" cy="14" r="3" stroke="currentColor" stroke-width="1.2"/><path d="M16 12.5v3M14.5 14h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-          Settle an argument
-        </button>
 
       </div>
     </section>
@@ -120,7 +180,7 @@
       </div>
     </section>
 
-    <!-- ====== ANSWER — Progressive disclosure results ====== -->
+    <!-- ====== ANSWER — Flowing narrative results ====== -->
     <section id="answer" class="screen" aria-labelledby="answer-heading">
       <div class="container answer-wrap">
 
@@ -129,7 +189,6 @@
           New question
         </button>
 
-        <!-- THE ANSWER — big, clear, immediate -->
         <div class="answer-hero" id="answer-hero">
           <div class="verdict-particles" id="verdict-particles" aria-hidden="true"></div>
           <p class="answer-label">The answer</p>
@@ -137,7 +196,6 @@
           <p id="answer-subtitle" class="answer-sub"></p>
         </div>
 
-        <!-- WHY — dynamically generated analysis sections -->
         <div class="why-section">
           <p class="why-label">Why?</p>
           <div id="analysis-content"></div>
@@ -145,7 +203,6 @@
 
         <div id="expiry-banner" class="expiry-banner" hidden role="alert"></div>
 
-        <!-- Actions -->
         <div class="answer-actions">
           <button type="button" class="action-btn" id="share-btn">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="14" cy="3.5" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="4" cy="9" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="14" cy="14.5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M6 8l6-3.5M6 10l6 3.5" stroke="currentColor" stroke-width="1.2"/></svg>
@@ -196,8 +253,16 @@
 
         <!-- Step 1: Create or Join -->
         <div id="debate-lobby" class="debate-step">
-          <h2 id="debate-heading">Settle an argument</h2>
-          <p class="debate-sub">Create a room or join one. Everyone argues their side, then the AI settles it with facts.</p>
+          <div class="debate-lobby-header">
+            <div class="door-glyph door-glyph-sm">
+              <svg class="glyph-icon glyph-debate" viewBox="0 0 48 48" fill="none">
+                <path d="M8 12h20v16H14l-6 6v-6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M20 8h20v16H26l-6 6v-6" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.4"/>
+              </svg>
+            </div>
+            <h2 id="debate-heading">Settle an argument</h2>
+            <p class="debate-sub">Create a room or join one. Everyone argues their side, then the AI settles it with facts.</p>
+          </div>
 
           <div class="debate-choices">
             <div class="debate-choice-card" id="debate-create-card">
@@ -223,7 +288,7 @@
           <p class="debate-error" id="debate-error" hidden></p>
         </div>
 
-        <!-- Step 2: The Room — argue + see others -->
+        <!-- Step 2: The Room -->
         <div id="debate-room" class="debate-step" hidden>
           <div class="debate-room-header">
             <h2 id="debate-room-topic"></h2>

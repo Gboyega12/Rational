@@ -262,10 +262,24 @@
   }
 
   // ================================================================
-  // HOME — Journal-style greeting + voice-first input
+  // HOME — Two-door hub + decision input screen
   // ================================================================
   const decisionInput = $('#decision-input');
   const sendBtn = $('#send-btn');
+
+  // "Make a decision" door
+  $('#decide-entry-btn').addEventListener('click', () => {
+    showScreen('decide-input');
+    decisionInput.value = '';
+    validateInput();
+    decisionInput.focus();
+  });
+
+  // "Decide" screen back button
+  $('#decide-back').addEventListener('click', () => {
+    showScreen('home');
+    initHome();
+  });
 
   function initHome() {
     // Set dynamic greeting from UserMemory
@@ -290,6 +304,7 @@
       // Click recent to re-ask
       $$('.recent-item', recentList).forEach(btn => {
         btn.addEventListener('click', () => {
+          showScreen('decide-input');
           decisionInput.value = btn.dataset.question;
           autoResize();
           validateInput();
@@ -363,7 +378,7 @@
     startFollowupChat();
   }
 
-  // Back buttons
+  // Back buttons — all go to hub
   $('#followup-back').addEventListener('click', () => { showScreen('home'); initHome(); });
   $('#answer-back').addEventListener('click', () => { showScreen('home'); initHome(); });
   $('#history-btn').addEventListener('click', () => { renderHistory(); showScreen('history'); });
@@ -2725,7 +2740,12 @@
     $('#debate-join-code').value = urlDebate.toUpperCase();
     $('#debate-join-name').focus();
     window.history.replaceState({}, '', '/');
+  } else if (urlAction === 'debate') {
+    showScreen('debate');
+    resetDebateLobby();
+    window.history.replaceState({}, '', '/');
   } else if (urlAction === 'new') {
+    showScreen('decide-input');
     decisionInput.focus();
     window.history.replaceState({}, '', '/');
   } else if (urlAction === 'dashboard') {
