@@ -12,12 +12,12 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
 
-  const { description, category, timeHorizon, deadline } = req.body;
+  const { description, category, timeHorizon, deadline, personalContext } = req.body;
   if (!description || description.length < 20) {
     return res.status(400).json({ error: 'Description too short' });
   }
 
-  const systemPrompt = `You are Rational, a decision analysis engine. The user will describe a decision they're facing. Your job is to produce a deeply personalized, research-backed analysis using these 7 frameworks, then a final verdict.
+  const systemPrompt = `You are Rational, a decision analysis engine. The user will describe a decision they're facing. Your job is to produce a deeply personalized, research-backed analysis using 12 frameworks, then a final verdict.
 
 IMPORTANT RULES:
 - Be specific to THEIR situation. Reference details they mentioned. Don't be generic.
@@ -87,11 +87,52 @@ Return ONLY valid JSON in this exact structure (no markdown, no code fences):
       { "action": "Stop/Reduce/Double down", "target": "what", "reason": "why" }
     ]
   },
+  "opportunityCost": {
+    "title": "Opportunity Cost — what are you giving up?",
+    "confidence": "high/medium/low",
+    "narrative": "Full analysis of what they sacrifice by choosing each path. Include: time cost (compounding effects of months/years spent), energy cost (cognitive load, fatigue, focus spread), financial cost (money locked up or foregone), and the hidden cost they didn't mention — the thing they're currently spending resources on that's depleting capacity for the better option.",
+    "hiddenCost": "The one opportunity cost they didn't see — often it's current commitments draining the energy needed for the optimal path"
+  },
+  "regretMinimization": {
+    "title": "Regret Minimization — what would 80-year-old you choose?",
+    "confidence": "high/medium/low",
+    "narrative": "Apply Jeff Bezos's regret minimization framework. Is this an asymmetric bet (bounded downside, unbounded upside)? Would they regret NOT trying more than failing? For close calls: people regret inaction more than action. Reference their specific situation — age, life stage, whether the window is closing.",
+    "verdict": "Clear statement: which choice minimizes lifetime regret and why"
+  },
+  "reversibility": {
+    "title": "Reversibility — one-way door or two-way door?",
+    "confidence": "high/medium/low",
+    "options": [
+      {
+        "name": "Option name",
+        "type": "one-way/hard/easy",
+        "label": "One-way door / Hard to reverse / Easily reversible",
+        "explanation": "Why this is reversible or not, and specific time/cost to reverse"
+      }
+    ],
+    "verdict": "How reversibility should affect the decision speed and commitment level"
+  },
+  "optionality": {
+    "title": "Optionality — which path keeps doors open?",
+    "confidence": "high/medium/low",
+    "narrative": "Which choice preserves the most future options? Some decisions build transferable skills, credentials, and networks that work regardless of outcome. Others lock you into a specific path. Identify which options are 'option-creating' vs 'option-closing'. Consider: does this build skills/networks useful even if it fails? Does this close off time-sensitive alternatives?",
+    "verdict": "Which option maximizes optionality and whether that matters more than EV here"
+  },
+  "preMortem": {
+    "title": "Pre-Mortem — how does this fail?",
+    "confidence": "high/medium/low",
+    "failureModes": [
+      "Most likely failure mode 1 — specific to their situation, not generic",
+      "Failure mode 2 — based on base rates, their resources, timing",
+      "Failure mode 3 — the failure mode they're not thinking about"
+    ],
+    "mitigation": "For each failure mode: one specific early-detection signal they can watch for in the first 30-60 days, so they can course-correct before catastrophic failure"
+  },
   "finalVerdict": {
     "title": "The verdict",
-    "recommendation": "Clear, specific recommendation",
+    "recommendation": "Clear, specific recommendation with the logic chain: EV says X, but opportunity cost + reversibility + regret minimization all point to Y, so do Y",
     "nextStep": "The single most valuable thing to do in the next 30 days",
-    "hiddenInsight": "The thing they didn't ask about but should have — the cognitive bias in their framing"
+    "hiddenInsight": "The thing they didn't ask about but should have — the cognitive bias in their framing, or the real decision hiding behind the stated one"
   }
 }`;
 
@@ -102,8 +143,9 @@ ${description}
 ${category ? `Category: ${category}` : ''}
 ${timeHorizon ? `Time horizon: ${timeHorizon}` : ''}
 ${deadline ? `Deadline: ${deadline}` : ''}
+${personalContext ? `\nPersonal context:\n${Object.entries(personalContext).filter(([,v]) => v).map(([k,v]) => `- ${k}: ${v}`).join('\n')}` : ''}
 
-Analyze this decision using all 7 frameworks. Be specific to MY situation — use real numbers, do the math, and give me a straight answer.`;
+Analyze this decision using all 12 frameworks. Be specific to MY situation — use real numbers, do the math, and give me a straight answer. Don't be generic. Reference my exact details.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -115,7 +157,7 @@ Analyze this decision using all 7 frameworks. Be specific to MY situation — us
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }],
       }),
