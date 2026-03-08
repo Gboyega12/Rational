@@ -42,6 +42,124 @@
   // STORAGE
   // ================================================================
   const STORAGE_KEY = 'rational_data';
+  const MEMORY_KEY = 'rational_user';
+
+  // User Memory — persistent profile that learns over time
+  const UserMemory = {
+    _profile: null,
+
+    _defaults() {
+      return {
+        name: '',
+        location: '',
+        lifeStage: '',
+        dependents: '',
+        riskTolerance: '',
+        runway: '',
+        cultural: '',
+        questionsAsked: 0,
+        topCategories: {},       // { daily: 5, career: 3, ... }
+        recentMoods: [],         // last 10 moods
+        recentPatterns: [],      // last 10 patterns
+        lastSeen: null,
+        firstSeen: null,
+        preferences: {},         // learned from past answers
+        version: 1,
+      };
+    },
+
+    load() {
+      try {
+        const raw = localStorage.getItem(MEMORY_KEY);
+        this._profile = raw ? JSON.parse(raw) : this._defaults();
+        if (!this._profile.version) this._profile = { ...this._defaults(), ...this._profile, version: 1 };
+      } catch { this._profile = this._defaults(); }
+      return this._profile;
+    },
+
+    save() {
+      try { localStorage.setItem(MEMORY_KEY, JSON.stringify(this._profile)); } catch {}
+    },
+
+    get profile() { return this._profile; },
+
+    // Learn from a follow-up answer — store it permanently if it's a stable trait
+    learnFromAnswer(questionId, value) {
+      if (!value) return;
+      const stableTraits = ['location', 'life_stage', 'dependents', 'risk_tolerance', 'runway', 'cultural'];
+      if (stableTraits.includes(questionId)) {
+        const key = questionId.replace(/_([a-z])/g, (_, c) => c.toUpperCase()); // snake_case to camelCase
+        this._profile[key] = value;
+      }
+      if (questionId === 'mood_right_now' || questionId === 'emotional_state') {
+        this._profile.recentMoods.push({ value, ts: Date.now() });
+        if (this._profile.recentMoods.length > 10) this._profile.recentMoods.shift();
+      }
+      if (questionId === 'recent_pattern') {
+        this._profile.recentPatterns.push({ value, ts: Date.now() });
+        if (this._profile.recentPatterns.length > 10) this._profile.recentPatterns.shift();
+      }
+      this._profile.preferences[questionId] = value;
+      this.save();
+    },
+
+    // Record that a question was asked in a category
+    recordQuestion(category) {
+      this._profile.questionsAsked++;
+      if (category) {
+        this._profile.topCategories[category] = (this._profile.topCategories[category] || 0) + 1;
+      }
+      this._profile.lastSeen = Date.now();
+      if (!this._profile.firstSeen) this._profile.firstSeen = Date.now();
+      this.save();
+    },
+
+    // Check if we already know a stable trait (skip the question)
+    knows(questionId) {
+      const key = questionId.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+      return !!this._profile[key];
+    },
+
+    // Get stored value for a trait
+    get(questionId) {
+      const key = questionId.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+      return this._profile[key] || this._profile.preferences[questionId] || '';
+    },
+
+    // Get greeting based on history
+    getGreeting() {
+      const p = this._profile;
+      if (!p.firstSeen) return { headline: "What's on your mind?", sub: "Ask me anything — big life decisions or what to eat for dinner." };
+
+      const days = Math.floor((Date.now() - p.firstSeen) / 86400000);
+      const total = p.questionsAsked;
+      const topCat = Object.entries(p.topCategories).sort((a, b) => b[1] - a[1])[0];
+      const name = p.name ? `, ${p.name}` : '';
+
+      if (total === 0) return { headline: "What's on your mind?", sub: "Ask me anything — big life decisions or what to eat for dinner." };
+
+      const lastMood = p.recentMoods[p.recentMoods.length - 1];
+      const hoursSinceLast = p.lastSeen ? (Date.now() - p.lastSeen) / 3600000 : 999;
+
+      if (hoursSinceLast < 2) return { headline: `Back again${name}?`, sub: `You've asked ${total} question${total > 1 ? 's' : ''} — what's next?` };
+      if (hoursSinceLast < 24) return { headline: `Hey${name}`, sub: "What are we figuring out today?" };
+      if (days > 7) return { headline: `Been a minute${name}`, sub: `${total} decisions logged over ${days} days. What's new?` };
+      return { headline: `What's the move${name}?`, sub: topCat ? `You ask about ${topCat[0]} a lot — is this another one?` : "Big or small, I'm here." };
+    },
+
+    // Get the dominant mood pattern
+    getMoodPattern() {
+      const moods = this._profile.recentMoods;
+      if (moods.length < 3) return null;
+      const counts = {};
+      moods.forEach(m => { counts[m.value] = (counts[m.value] || 0) + 1; });
+      const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+      if (top[1] >= 3) return top[0]; // dominant mood if 3+ of last 10
+      return null;
+    },
+  };
+
+  UserMemory.load();
 
   const Store = {
     _data: null,
@@ -132,168 +250,170 @@
   // ================================================================
   function showScreen(id) {
     $$('.screen').forEach(s => s.classList.remove('active'));
-    $(`#${id}`).classList.add('active');
+    const el = $(`#${id}`);
+    if (el) el.classList.add('active');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
 
-  function showStep(n) {
-    $$('.wizard-step').forEach(s => s.classList.remove('active'));
-    $(`.wizard-step[data-wizard-step="${n}"]`).classList.add('active');
-    const pct = (n / 3) * 100;
-    $('#progress-fill').style.width = pct + '%';
-    $('#progress-label').textContent = `${n} of 3`;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  // ================================================================
-  // LANDING
-  // ================================================================
-  function updateLandingStats() {
-    const data = Store._data;
-    const statsEl = $('#returning-stats');
-    if (data.decisions.length > 0) {
-      statsEl.hidden = false;
-      $('#stat-decisions').textContent = data.decisions.length;
-      const brier = Store.getBrierScore();
-      $('#stat-brier').textContent = brier !== null ? brier.toFixed(3) : '—';
-      $('#stat-streak').textContent = data.calibration.length;
+    // Trigger animations on answer screen
+    if (id === 'answer') {
+      spawnParticles();
+      setTimeout(observeRevealSections, 100);
     }
   }
 
-  updateLandingStats();
-
   // ================================================================
-  // STEP 1 — Describe
+  // HOME — Journal-style greeting + voice-first input
   // ================================================================
   const decisionInput = $('#decision-input');
-  const step1Next = $('.next-step[data-next="2"]');
-  function validateStep1() {
-    const valid = decisionInput.value.trim().length >= 10;
-    step1Next.disabled = !valid;
-    const aiBtn = $('#ai-analyze-btn');
-    if (aiBtn) aiBtn.disabled = !valid;
+  const sendBtn = $('#send-btn');
+
+  function initHome() {
+    // Set dynamic greeting from UserMemory
+    const greeting = UserMemory.getGreeting();
+    $('#home-heading').textContent = greeting.headline;
+    $('#greeting-sub').textContent = greeting.sub;
+
+    // Show recent questions
+    const decisions = Store._data.decisions.slice(0, 5);
+    const recentEl = $('#recent-questions');
+    const recentList = $('#recent-list');
+    if (decisions.length > 0) {
+      recentEl.hidden = false;
+      recentList.innerHTML = decisions.map(d => {
+        const short = d.decision.length > 60 ? d.decision.slice(0, 57) + '...' : d.decision;
+        return `<button type="button" class="recent-item" data-question="${escapeHtml(d.decision)}">
+          <span class="recent-text">${escapeHtml(short)}</span>
+          <span class="recent-answer">${escapeHtml(d.recommendation || '')}</span>
+        </button>`;
+      }).join('');
+
+      // Click recent to re-ask
+      $$('.recent-item', recentList).forEach(btn => {
+        btn.addEventListener('click', () => {
+          decisionInput.value = btn.dataset.question;
+          autoResize();
+          validateInput();
+        });
+      });
+    } else {
+      recentEl.hidden = true;
+    }
+
+    decisionInput.value = '';
+    validateInput();
+  }
+
+  function validateInput() {
+    const valid = decisionInput.value.trim().length >= 5;
+    sendBtn.disabled = !valid;
+  }
+
+  function autoResize() {
+    decisionInput.style.height = 'auto';
+    decisionInput.style.height = Math.min(decisionInput.scrollHeight, 160) + 'px';
   }
 
   decisionInput.addEventListener('input', () => {
-    const len = decisionInput.value.length;
-    $('#char-count').textContent = `${len.toLocaleString()} / 3,000`;
-    validateStep1();
+    autoResize();
+    validateInput();
   });
 
-  // ================================================================
-  // STEP 2 — Options (best case / worst case)
-  // ================================================================
-  const optionsContainer = $('#options-container');
-  const step2Next = $('.next-step[data-next="3"]');
+  // Send button — start analysis flow
+  sendBtn.addEventListener('click', () => startAnalysisFlow());
 
-  function createOptionCard(index) {
-    const card = document.createElement('div');
-    card.className = 'option-card';
-    card.dataset.index = index;
-    card.innerHTML = `
-      <div class="option-card-header">
-        <span class="option-letter">${letterForIndex(index)}</span>
-        <input type="text" class="input option-name" placeholder="Option name" maxlength="80" aria-label="Option ${letterForIndex(index)} name">
-        ${index >= 2 ? '<button type="button" class="option-remove" aria-label="Remove option"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>' : ''}
-      </div>
-      <div class="scenario">
-        <div class="scenario-label best">Best case</div>
-        <div class="scenario-row">
-          <input type="text" class="input best-desc" placeholder="What happens if this goes well?" aria-label="Best case description">
-          <input type="number" class="input best-prob" placeholder="%" min="0" max="100" step="1" aria-label="Best case likelihood">
-          <input type="number" class="input best-payoff" placeholder="Value" step="1" aria-label="Best case value">
-        </div>
-      </div>
-      <div class="scenario">
-        <div class="scenario-label worst">Worst case</div>
-        <div class="scenario-row">
-          <input type="text" class="input worst-desc" placeholder="What happens if this goes badly?" aria-label="Worst case description">
-          <input type="number" class="input worst-prob" placeholder="%" min="0" max="100" step="1" aria-label="Worst case likelihood">
-          <input type="number" class="input worst-payoff" placeholder="Value" step="1" aria-label="Worst case value">
-        </div>
-      </div>`;
-
-    optionsContainer.appendChild(card);
-
-    const remove = card.querySelector('.option-remove');
-    if (remove) {
-      remove.addEventListener('click', () => {
-        card.remove();
-        reindexOptions();
-        validateOptions();
-      });
+  // Enter to send (shift+enter for newline)
+  decisionInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && decisionInput.value.trim().length >= 5) {
+      e.preventDefault();
+      startAnalysisFlow();
     }
-
-    card.querySelectorAll('.input').forEach(inp => inp.addEventListener('input', validateOptions));
-    return card;
-  }
-
-  function reindexOptions() {
-    $$('.option-card', optionsContainer).forEach((card, i) => {
-      card.dataset.index = i;
-      card.querySelector('.option-letter').textContent = letterForIndex(i);
-    });
-  }
-
-  function validateOptions() {
-    const cards = $$('.option-card', optionsContainer);
-    if (cards.length < 2) { step2Next.disabled = true; return; }
-
-    let valid = true;
-    cards.forEach(card => {
-      const name = card.querySelector('.option-name').value.trim();
-      const bestProb = parseFloat(card.querySelector('.best-prob').value);
-      const bestPayoff = card.querySelector('.best-payoff').value.trim();
-      const worstProb = parseFloat(card.querySelector('.worst-prob').value);
-      const worstPayoff = card.querySelector('.worst-payoff').value.trim();
-      if (!name || isNaN(bestProb) || !bestPayoff || isNaN(worstProb) || !worstPayoff) valid = false;
-    });
-    step2Next.disabled = !valid;
-  }
-
-  function seedOptions() {
-    optionsContainer.innerHTML = '';
-    createOptionCard(0);
-    createOptionCard(1);
-    validateOptions();
-  }
-
-  $('#add-option-btn').addEventListener('click', () => {
-    if (optionsContainer.children.length >= 5) return;
-    const card = createOptionCard(optionsContainer.children.length);
-    card.querySelector('.option-name').focus();
   });
 
-  function collectOptions() {
-    state.options = $$('.option-card', optionsContainer).map(card => ({
-      name: card.querySelector('.option-name').value.trim(),
-      bestDesc: card.querySelector('.best-desc').value.trim() || 'Good outcome',
-      bestProb: (parseFloat(card.querySelector('.best-prob').value) || 50) / 100,
-      bestPayoff: parseFloat(card.querySelector('.best-payoff').value) || 0,
-      worstDesc: card.querySelector('.worst-desc').value.trim() || 'Bad outcome',
-      worstProb: (parseFloat(card.querySelector('.worst-prob').value) || 50) / 100,
-      worstPayoff: parseFloat(card.querySelector('.worst-payoff').value) || 0,
-    }));
+  function startAnalysisFlow() {
+    state.decision = decisionInput.value.trim();
+    state.category = '';
+    state.timeHorizon = '';
+    state.deadline = '';
+    state.context = {};
+
+    // Auto-detect category
+    const parsed = parseDescription(state.decision, '');
+    state.category = parsed.category || '';
+
+    // Record in memory
+    UserMemory.recordQuestion(state.category);
+
+    // Pre-fill known context from memory
+    const mem = UserMemory.profile;
+    state.context = {
+      location: mem.location || '',
+      lifeStage: mem.lifeStage || '',
+      dependents: mem.dependents || '',
+      runway: mem.runway || '',
+      riskTolerance: mem.riskTolerance || '',
+      cultural: mem.cultural || '',
+    };
+
+    // Go to follow-up questions
+    showScreen('followup');
+    startFollowupChat();
   }
 
-  // ================================================================
-  // STEP 3 — Context
-  // ================================================================
-  const sunkCostInput = $('#sunk-cost-input');
-  const sunkCostOptionGroup = $('#sunk-cost-option-group');
-  const sunkCostWhich = $('#sunk-cost-which');
+  // Back buttons
+  $('#followup-back').addEventListener('click', () => { showScreen('home'); initHome(); });
+  $('#answer-back').addEventListener('click', () => { showScreen('home'); initHome(); });
+  $('#history-btn').addEventListener('click', () => { renderHistory(); showScreen('history'); });
+  $('#history-back').addEventListener('click', () => { showScreen('home'); initHome(); });
 
-  sunkCostInput.addEventListener('change', () => {
-    if (sunkCostInput.value === 'moderate' || sunkCostInput.value === 'heavy') {
-      sunkCostOptionGroup.hidden = false;
-      sunkCostWhich.innerHTML = '<option value="">Which one?</option>';
-      state.options.forEach((o, i) => {
-        sunkCostWhich.innerHTML += `<option value="${i}">${letterForIndex(i)}. ${escapeHtml(o.name)}</option>`;
-      });
+  // Init on load
+  initHome();
+
+  // ================================================================
+  // OPTIONS — Auto-generated from parsed description
+  // ================================================================
+  function collectOptionsFromParsed() {
+    const parsed = parseDescription(state.decision, state.category);
+    if (parsed.options.length >= 2) {
+      state.options = parsed.options.map(opt => ({
+        name: opt.name,
+        bestDesc: opt.bestDesc,
+        bestProb: (opt.bestProb || 50) / 100,
+        bestPayoff: opt.bestPayoff || 0,
+        worstDesc: opt.worstDesc,
+        worstProb: (opt.worstProb || 50) / 100,
+        worstPayoff: opt.worstPayoff || 0,
+      }));
+    } else if (parsed.options.length === 1) {
+      state.options = [{
+        name: parsed.options[0].name,
+        bestDesc: parsed.options[0].bestDesc,
+        bestProb: (parsed.options[0].bestProb || 50) / 100,
+        bestPayoff: parsed.options[0].bestPayoff || 0,
+        worstDesc: parsed.options[0].worstDesc,
+        worstProb: (parsed.options[0].worstProb || 50) / 100,
+        worstPayoff: parsed.options[0].worstPayoff || 0,
+      }, {
+        name: 'Stay on current path',
+        bestDesc: 'Stability, no disruption',
+        bestProb: 0.65,
+        bestPayoff: Math.round((parsed.options[0].bestPayoff || 10) * 0.6),
+        worstDesc: 'Missed opportunity',
+        worstProb: 0.35,
+        worstPayoff: Math.round((parsed.options[0].bestPayoff || 10) * 0.3),
+      }];
     } else {
-      sunkCostOptionGroup.hidden = true;
+      // Fallback: generic two-option split
+      state.options = [
+        { name: 'Option A', bestDesc: 'Things go well', bestProb: 0.6, bestPayoff: 8, worstDesc: 'Things go badly', worstProb: 0.4, worstPayoff: 2 },
+        { name: 'Option B', bestDesc: 'Things go well', bestProb: 0.5, bestPayoff: 7, worstDesc: 'Things go badly', worstProb: 0.5, worstPayoff: 3 },
+      ];
     }
-  });
+
+    // Store suggested base rate
+    state._suggestedBaseRate = parsed.suggestedBaseRate;
+    state._suggestedBaseFact = parsed.suggestedBaseFact;
+    if (parsed.suggestedBaseRate) state.biases.baseRate = parsed.suggestedBaseRate;
+  }
 
   // ================================================================
   // SMART PARSER — Extract options + research-backed numbers
@@ -694,146 +814,9 @@
     return { options, category, suggestedBaseRate, suggestedBaseFact, matches };
   }
 
-  // Populate option cards from parsed data
-  function autoFillOptions(parsed) {
-    optionsContainer.innerHTML = '';
-
-    if (parsed.options.length === 0) {
-      // Fallback: empty cards
-      createOptionCard(0);
-      createOptionCard(1);
-      $('#autofill-banner').hidden = true;
-      validateOptions();
-      return;
-    }
-
-    parsed.options.forEach((opt, i) => {
-      const card = createOptionCard(i);
-      card.querySelector('.option-name').value = opt.name;
-      card.querySelector('.best-desc').value = opt.bestDesc;
-      card.querySelector('.best-prob').value = opt.bestProb;
-      card.querySelector('.best-payoff').value = opt.bestPayoff;
-      card.querySelector('.worst-desc').value = opt.worstDesc;
-      card.querySelector('.worst-prob').value = opt.worstProb;
-      card.querySelector('.worst-payoff').value = opt.worstPayoff;
-    });
-
-    // Ensure at least 2 cards
-    while (optionsContainer.children.length < 2) {
-      createOptionCard(optionsContainer.children.length);
-    }
-
-    // Show banner
-    $('#autofill-banner').hidden = false;
-
-    // Auto-fill category
-    if (parsed.category && !$('#decision-category').value) {
-      $('#decision-category').value = parsed.category;
-    }
-
-    // Store suggested base rate for Step 3
-    state._suggestedBaseRate = parsed.suggestedBaseRate;
-    state._suggestedBaseFact = parsed.suggestedBaseFact;
-
-    validateOptions();
-  }
-
   // ================================================================
-  // NAVIGATION
+  // ANALYSIS RENDERING — AI RESULTS
   // ================================================================
-  $('#start-btn').addEventListener('click', () => {
-    showScreen('wizard');
-    showStep(1);
-    seedOptions();
-    state.currentDecisionId = null;
-    state.context = {};
-    decisionInput.value = '';
-    $('#char-count').textContent = '0 / 3,000';
-    resetFollowupChat();
-    decisionInput.focus();
-  });
-
-  function resetFollowupChat() {
-    const chatEl = $('#followup-chat');
-    if (chatEl) chatEl.hidden = true;
-    const methodPreview = $('#methodology-preview');
-    if (methodPreview) methodPreview.hidden = false;
-    const stepNav = $('[data-wizard-step="1"] .step-nav');
-    if (stepNav) stepNav.hidden = false;
-    const loading = $('#ai-loading');
-    if (loading) loading.hidden = true;
-  }
-
-  $('#back-to-landing').addEventListener('click', () => {
-    resetFollowupChat();
-    showScreen('landing');
-  });
-
-  $('#logo-home').addEventListener('click', (e) => {
-    e.preventDefault();
-    updateLandingStats();
-    showScreen('landing');
-  });
-
-  $$('.next-step').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const next = parseInt(btn.dataset.next, 10);
-      if (next === 2) {
-        state.decision = decisionInput.value.trim();
-        state.category = $('#decision-category').value;
-        state.timeHorizon = $('#time-horizon').value;
-        state.deadline = $('#decision-deadline').value;
-
-        // Parse description and auto-fill options
-        const parsed = parseDescription(state.decision, state.category);
-        autoFillOptions(parsed);
-      }
-      if (next === 3) {
-        collectOptions();
-        sunkCostInput.value = '';
-        sunkCostOptionGroup.hidden = true;
-
-        // Auto-fill base rate if parser found one
-        if (state._suggestedBaseRate && !$('#base-rate-input').value) {
-          $('#base-rate-input').value = state._suggestedBaseRate;
-        }
-        // Show research fact
-        const factEl = $('#base-rate-fact');
-        if (state._suggestedBaseFact) {
-          factEl.hidden = false;
-          factEl.textContent = '📊 ' + state._suggestedBaseFact;
-        } else {
-          factEl.hidden = true;
-        }
-      }
-      showStep(next);
-    });
-  });
-
-  $$('.prev-step').forEach(btn => {
-    btn.addEventListener('click', () => showStep(parseInt(btn.dataset.prev, 10)));
-  });
-
-  // ================================================================
-  // RUN ANALYSIS
-  // ================================================================
-  $('#run-analysis-btn').addEventListener('click', () => {
-    state.biases.sunkCost = sunkCostInput.value;
-    state.biases.sunkCostOption = sunkCostWhich.value;
-    state.biases.survivorship = $('#survivorship-input').value;
-    state.biases.baseRate = parseFloat($('#base-rate-input').value) || null;
-    state.biases.bankroll = parseFloat($('#bankroll-input').value) || null;
-
-    collectOptions();
-    runAnalysis();
-    showScreen('results');
-  });
-
-  // ================================================================
-  // AI ANALYSIS FLOW
-  // ================================================================
-  // (AI analyze handler is now in the follow-up conversation section below)
-
   function confidenceBadge(level) {
     if (!level) return '';
     const labels = { high: 'High confidence', medium: 'Verify numbers', low: 'Rough estimate' };
@@ -841,27 +824,9 @@
   }
 
   function renderAIResults(ai) {
-    // Hide loading, restore methodology preview
-    $('#ai-loading').hidden = true;
-    const mp = $('#methodology-preview');
-    if (mp) mp.hidden = false;
-    validateStep1();
-
     // Verdict hero
-    $('.verdict-heading').innerHTML = escapeHtml(ai.verdict?.title || 'Analysis complete') + '<span class="ai-badge">AI</span>';
-    $('#verdict-sub').textContent = ai.verdict?.subtitle || '';
-
-    // Accuracy disclaimer
-    const disclaimerEl = document.getElementById('ai-disclaimer');
-    if (disclaimerEl) disclaimerEl.remove();
-    const disclaimer = document.createElement('div');
-    disclaimer.id = 'ai-disclaimer';
-    disclaimer.className = 'ai-disclaimer';
-    disclaimer.innerHTML = 'Numbers are AI estimates sourced from public data. Always verify critical figures (salaries, costs, rates) against official sources before making final decisions.';
-    const verdictEl = $('.verdict-heading');
-    if (verdictEl && verdictEl.parentElement) {
-      verdictEl.parentElement.insertBefore(disclaimer, verdictEl.nextSibling?.nextSibling || null);
-    }
+    $('#answer-heading').innerHTML = escapeHtml(ai.verdict?.title || 'Analysis complete');
+    $('#answer-subtitle').textContent = ai.verdict?.subtitle || '';
 
     // Section 1: Expected Value
     if (ai.ev) {
@@ -903,7 +868,6 @@
       } else {
         $('#ev-bars').innerHTML = '';
       }
-      $('#ev-math').textContent = (ai.ev.sections || []).map(s => `${s.optionName}: ${s.evCalculation || 'N/A'}`).join('\n\n');
     }
 
     // Section 2: Base Rate
@@ -917,7 +881,6 @@
       }
       $('#base-narrative').innerHTML = brHtml;
       $('#base-visual').innerHTML = '';
-      $('#bayes-math').textContent = ai.baseRate.bullets?.join('\n') || '';
     }
 
     // Section 3: Sunk Cost
@@ -960,10 +923,9 @@
       }
       $('#kelly-narrative').innerHTML = kellyHtml;
       $('#kelly-visual').innerHTML = '';
-      $('#kelly-math').textContent = ai.kelly.recommendations?.map(r => `${r.action}: ${r.target} — ${r.reason}`).join('\n') || '';
     }
 
-    // Section 7: Sensitivity — hide in AI mode (AI handles uncertainty in narrative)
+    // Section 7: Sensitivity
     $('#sensitivity-sliders').innerHTML = '';
     $('#sensitivity-result').innerHTML = '';
 
@@ -981,12 +943,13 @@
       }
       verdictHtml += '</div>';
       $('#final-verdict').innerHTML = verdictHtml;
+      $('#personal-section').hidden = false;
     }
 
     // Expiry
     renderExpiryBanner();
 
-    // Save AI analysis in state for saving
+    // Save AI analysis in state
     state.analysisResults = { ai, mode: 'ai' };
   }
 
@@ -1079,19 +1042,19 @@
     if (evGap > 0) {
       if (isDailyDecision()) {
         const unit = getDailyUnit();
-        $('.verdict-heading').textContent = `Go with "${best.name}"`;
-        $('#verdict-sub').textContent = `It scores ${formatValue(best.ev)} on ${unit} — ${formatValue(evGap)} higher than the alternative.`;
+        $('#answer-heading').textContent = `Go with "${best.name}"`;
+        $('#answer-subtitle').textContent = `It scores ${formatValue(best.ev)} on ${unit} — ${formatValue(evGap)} higher than the alternative.`;
       } else {
-        $('.verdict-heading').textContent = `Go with "${best.name}"`;
-        $('#verdict-sub').textContent = `The numbers give it an edge of ${formatNumber(evGap)} over your next best option.`;
+        $('#answer-heading').textContent = `Go with "${best.name}"`;
+        $('#answer-subtitle').textContent = `The numbers give it an edge of ${formatNumber(evGap)} over your next best option.`;
       }
     } else {
       if (isDailyDecision()) {
-        $('.verdict-heading').textContent = 'Both are solid picks';
-        $('#verdict-sub').textContent = 'They score about the same — go with your gut on this one.';
+        $('#answer-heading').textContent = 'Both are solid picks';
+        $('#answer-subtitle').textContent = 'They score about the same — go with your gut on this one.';
       } else {
-        $('.verdict-heading').textContent = 'Too close to call on numbers alone';
-        $('#verdict-sub').textContent = 'Consider what matters most beyond the math — timing, energy, optionality.';
+        $('#answer-heading').textContent = 'Too close to call on numbers alone';
+        $('#answer-subtitle').textContent = 'Consider what matters most beyond the math — timing, energy, optionality.';
       }
     }
 
@@ -1101,7 +1064,7 @@
     renderBayes(evs, bayesResults, best);
     renderSurvivorship();
     if (!isDailyDecision()) renderKelly(kellyResults, evs);
-    else { $('#kelly-narrative').innerHTML = '<p>For a daily decision, sizing doesn\'t apply — just commit and enjoy it.</p>'; $('#kelly-visual').innerHTML = ''; $('#kelly-math').textContent = ''; }
+    else { $('#kelly-narrative').innerHTML = '<p>For a daily decision, sizing doesn\'t apply — just commit and enjoy it.</p>'; $('#kelly-visual').innerHTML = ''; }
     renderSensitivity(evs);
     renderFinalVerdict(evs, best, second, bayesResults, kellyResults);
     renderExpiryBanner();
@@ -1150,9 +1113,6 @@
       </div>`;
     }).join('');
 
-    $('#ev-math').textContent = evs.map(opt =>
-      `${opt.name}:\n  EV = (${(opt.normBest * 100).toFixed(0)}% × ${formatNumber(opt.bestPayoff)}) + (${(opt.normWorst * 100).toFixed(0)}% × ${formatNumber(opt.worstPayoff)}) = ${formatNumber(opt.ev)}`
-    ).join('\n\n');
   }
 
   // --- Section 2: Base Rate ---
@@ -1163,7 +1123,6 @@
     if (!state.biases.baseRate) {
       narrative.innerHTML = '<p>You didn\'t provide a success rate, so we can\'t compare your estimates to what usually happens. Even a rough guess — "about 15% of people succeed at this" — is one of the most powerful reality checks available.</p>';
       visual.innerHTML = '';
-      $('#bayes-math').textContent = 'No base rate provided.';
       return;
     }
 
@@ -1190,7 +1149,7 @@
       <div class="base-num-block"><span class="base-num actual">${br}%</span><span class="base-num-label">Typical rate</span></div>
     </div>`;
 
-    $('#bayes-math').textContent = `Base rate: ${br}%\nYour estimate for "${best.name}": ${bestSuccessProb}%\nRatio: ${(bestSuccessProb / br).toFixed(2)}x`;
+    // base rate math stored in state
   }
 
   // --- Section 3: Sunk Cost ---
@@ -1273,7 +1232,6 @@
     if (!kellyResults) {
       narrative.innerHTML = '<p>You didn\'t provide a budget, so we can\'t calculate optimal sizing. Even a rough number helps.</p>';
       visual.innerHTML = '';
-      $('#kelly-math').textContent = 'No budget provided.';
       return;
     }
 
@@ -1309,10 +1267,6 @@
       visual.innerHTML = '';
     }
 
-    $('#kelly-math').textContent = kellyResults.map(k => {
-      if (k.fullKelly === 0) return `${k.name}: No positive edge.`;
-      return `${k.name}:\n  p=${(k.p * 100).toFixed(1)}%, b=${k.b.toFixed(2)}, q=${(k.q * 100).toFixed(1)}%\n  f*=(p×b−q)/b=${(k.fullKelly * 100).toFixed(1)}%\n  Quarter Kelly=${(k.quarterKelly * 100).toFixed(1)}%\n  Allocation=${formatCurrency(k.amount)}`;
-    }).join('\n\n');
   }
 
   // --- Section 7: Sensitivity ---
@@ -1524,6 +1478,8 @@
 
     html += '</div>';
     container.innerHTML = html;
+    const section = $('#personal-section');
+    if (section) section.hidden = false;
   }
 
   function renderExpiryBanner() {
@@ -1552,10 +1508,11 @@
   function renderPersonalBiasProfile() {
     const bp = Store._data.biasProfile;
     const total = Object.values(bp).reduce((a, b) => a + b, 0);
-    if (total < 2) { $('#personal-bias-card').hidden = true; return; }
+    const section = $('#personal-section');
+    if (total < 2) { if (section) section.hidden = true; return; }
 
-    $('#personal-bias-card').hidden = false;
-    const content = $('#bias-profile-content');
+    if (section) section.hidden = false;
+    const content = $('#final-verdict');
     const biasLabels = {
       sunkCost: 'Holding on to past investments',
       survivorship: 'Inspired by success stories',
@@ -1576,16 +1533,15 @@
   }
 
   // ================================================================
-  // SAVE / EXPORT / DASHBOARD
+  // AUTO-SAVE — save every analysis automatically
   // ================================================================
-  $('#save-decision-btn').addEventListener('click', () => {
+  function autoSaveDecision() {
     const results = state.analysisResults;
     if (!results) return;
 
     let recommendation, bestEV, options, outcomes;
 
     if (results.mode === 'ai' && results.ai) {
-      // AI mode — extract from AI response
       recommendation = results.ai.verdict?.title || 'See analysis';
       bestEV = results.ai.ev?.sections?.[0]?.evValue || 0;
       options = (results.ai.ev?.sections || []).map(s => s.optionName);
@@ -1594,7 +1550,6 @@
         outcomes[i] = [{ description: s.evCalculation || s.optionName, probability: 0.5, payoff: s.evValue || 0 }];
       });
     } else {
-      // Local mode
       const evs = results.evs;
       if (!evs) return;
       const best = [...evs].sort((a, b) => b.ev - a.ev)[0];
@@ -1621,21 +1576,26 @@
       recommendation,
       bestEV,
       biases: { ...state.biases },
+      context: { ...state.context },
       timestamp: Date.now(),
       outcomeLogged: false,
       mode: results.mode || 'local',
     });
     state.currentDecisionId = Store._data.decisions[0].id;
-    alert('Decision saved.');
-  });
+  }
 
+  // Export
   $('#export-btn').addEventListener('click', () => {
     let text = `RATIONAL ANALYSIS\n${'='.repeat(40)}\n\nDecision: ${state.decision}\n\n`;
-    $$('.analysis-section').forEach(sec => {
-      const h = sec.querySelector('h3');
-      const n = sec.querySelector('.narrative');
-      if (h) text += `${h.textContent}\n${'-'.repeat(h.textContent.length)}\n`;
-      if (n) text += n.textContent.trim() + '\n\n';
+    const heading = $('#answer-heading');
+    const sub = $('#answer-subtitle');
+    if (heading) text += `Answer: ${heading.textContent}\n`;
+    if (sub) text += `${sub.textContent}\n\n`;
+    $$('.why-card').forEach(card => {
+      const summary = card.querySelector('summary');
+      const body = card.querySelector('.why-body .narrative');
+      if (summary) text += `${summary.textContent.trim()}\n${'-'.repeat(30)}\n`;
+      if (body) text += body.textContent.trim() + '\n\n';
     });
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a');
@@ -1645,77 +1605,76 @@
     URL.revokeObjectURL(a.href);
   });
 
-  $('#start-over-btn').addEventListener('click', () => { updateLandingStats(); showScreen('landing'); });
-
-  // Dashboard
-  $('#dashboard-btn').addEventListener('click', () => { renderDashboard(); showScreen('dashboard'); });
-  $('#dash-back-btn').addEventListener('click', () => { updateLandingStats(); showScreen('landing'); });
-
-  function renderDashboard() {
+  // ================================================================
+  // HISTORY
+  // ================================================================
+  function renderHistory() {
     const data = Store._data;
-    $('#dash-total').textContent = data.decisions.length;
-    $('#dash-calibrated').textContent = data.calibration.length;
-    const brier = Store.getBrierScore();
-    $('#dash-brier').textContent = brier !== null ? brier.toFixed(3) : '—';
-    const accuracy = Store.getAccuracy();
-    $('#dash-accuracy').textContent = accuracy !== null ? Math.round(accuracy * 100) + '%' : '—';
-
-    renderDashBiasProfile();
-
-    // Expiring
-    const expiring = data.decisions.filter(d => {
-      if (!d.deadline || d.outcomeLogged) return false;
-      const dl = new Date(d.deadline);
-      return dl > new Date() && (dl - new Date()) / 86400000 <= 14;
-    });
-    const es = $('#expiring-section');
-    if (expiring.length > 0) { es.hidden = false; $('#expiring-list').innerHTML = expiring.map(renderHistoryItem).join(''); }
-    else { es.hidden = true; }
-
+    const decisions = data.decisions;
     const hl = $('#history-list');
-    if (data.decisions.length === 0) { hl.innerHTML = '<p class="empty">Nothing yet.</p>'; }
-    else { hl.innerHTML = data.decisions.map(renderHistoryItem).join(''); }
+    const sub = $('#history-sub');
+    const stats = $('#history-stats');
 
-    $$('.log-outcome-trigger').forEach(btn => {
+    if (decisions.length === 0) {
+      hl.innerHTML = '<p class="empty">Nothing yet. Ask your first question.</p>';
+      sub.textContent = '';
+      stats.innerHTML = '';
+      return;
+    }
+
+    sub.textContent = `${decisions.length} decision${decisions.length !== 1 ? 's' : ''} logged`;
+
+    // Stats
+    const accuracy = Store.getAccuracy();
+    const categories = {};
+    decisions.forEach(d => { if (d.category) categories[d.category] = (categories[d.category] || 0) + 1; });
+    const topCat = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
+
+    stats.innerHTML = `
+      <div class="history-stat"><span class="stat-num">${decisions.length}</span><span class="stat-label">Total</span></div>
+      <div class="history-stat"><span class="stat-num">${accuracy !== null ? Math.round(accuracy * 100) + '%' : '—'}</span><span class="stat-label">Accuracy</span></div>
+      <div class="history-stat"><span class="stat-num">${topCat ? topCat[0] : '—'}</span><span class="stat-label">Top category</span></div>
+    `;
+
+    hl.innerHTML = decisions.map(d => {
+      const short = d.decision.length > 80 ? d.decision.slice(0, 77) + '...' : d.decision;
+      let badge = '';
+      if (d.outcomeLogged) badge = '<span class="history-badge logged">Tracked</span>';
+      else badge = '<span class="history-badge pending">Pending</span>';
+
+      return `<div class="history-item" data-id="${d.id}">
+        <div class="history-item-body">
+          <div class="history-item-decision">${escapeHtml(short)}</div>
+          <div class="history-item-meta">
+            <span>${formatDate(d.timestamp)}</span>
+            <span class="history-rec">${escapeHtml(d.recommendation || '')}</span>
+            ${badge}
+          </div>
+        </div>
+        ${!d.outcomeLogged ? `<button type="button" class="log-outcome-trigger" data-decision-id="${d.id}" aria-label="Log outcome">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.7L6 12 2.7 8.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>` : ''}
+      </div>`;
+    }).join('');
+
+    // Wire outcome logging
+    $$('.log-outcome-trigger', hl).forEach(btn => {
       btn.addEventListener('click', () => openOutcomeModal(btn.dataset.decisionId));
     });
-  }
 
-  function renderDashBiasProfile() {
-    const bp = Store._data.biasProfile;
+    // Bias profile
+    const bp = data.biasProfile;
     const total = Object.values(bp).reduce((a, b) => a + b, 0);
-    const c = $('#dash-bias-profile');
-    if (total < 2) { c.innerHTML = '<p class="empty">Not enough data yet.</p>'; return; }
-    const biasLabels = { sunkCost: 'Past investments', survivorship: 'Success stories', overconfidence: 'Overestimating odds', lossAversion: 'Avoiding risk' };
-    const max = Math.max(...Object.values(bp), 1);
-    c.innerHTML = Object.entries(bp).map(([k, v]) => `<div class="bias-bar">
-      <div class="bias-bar-header"><span class="bias-bar-name">${biasLabels[k]}</span><span class="bias-bar-count">${v}×</span></div>
-      <div class="bias-bar-track"><div class="bias-bar-fill ${k === 'sunkCost' ? 'sunk-cost' : k}" style="width:${(v / max) * 100}%"></div></div>
-    </div>`).join('');
-  }
-
-  function renderHistoryItem(d) {
-    let badge = '';
-    if (d.outcomeLogged) { badge = '<span class="history-badge logged">Tracked</span>'; }
-    else if (d.deadline) {
-      const days = Math.ceil((new Date(d.deadline) - new Date()) / 86400000);
-      if (days < 0) badge = '<span class="history-badge expired">Expired</span>';
-      else if (days <= 7) badge = `<span class="history-badge pending">${days}d left</span>`;
-      else badge = '<span class="history-badge pending">Pending</span>';
-    } else { badge = '<span class="history-badge pending">Pending</span>'; }
-
-    return `<div class="history-item">
-      <div class="history-item-body">
-        <div class="history-item-decision">${escapeHtml(d.decision.slice(0, 100))}</div>
-        <div class="history-item-meta">
-          <span>${formatDate(d.timestamp)}</span><span>${d.category || ''}</span>
-          <span>→ ${escapeHtml(d.recommendation)}</span>${badge}
-        </div>
-      </div>
-      <div class="history-item-actions">
-        ${!d.outcomeLogged ? `<button type="button" class="btn btn-success-soft btn-sm log-outcome-trigger" data-decision-id="${d.id}">Log outcome</button>` : ''}
-      </div>
-    </div>`;
+    const bpSection = $('#bias-profile-section');
+    if (total >= 2 && bpSection) {
+      bpSection.hidden = false;
+      const biasLabels = { sunkCost: 'Past investments', survivorship: 'Success stories', overconfidence: 'Overestimating odds', lossAversion: 'Avoiding risk' };
+      const max = Math.max(...Object.values(bp), 1);
+      $('#dash-bias-profile').innerHTML = Object.entries(bp).map(([k, v]) => `<div class="bias-bar">
+        <div class="bias-bar-header"><span class="bias-bar-name">${biasLabels[k]}</span><span class="bias-bar-count">${v}×</span></div>
+        <div class="bias-bar-track"><div class="bias-bar-fill ${k === 'sunkCost' ? 'sunk-cost' : k}" style="width:${(v / max) * 100}%"></div></div>
+      </div>`).join('');
+    }
   }
 
   // Outcome modal
@@ -1729,13 +1688,13 @@
     $('#outcome-modal-decision').textContent = d.decision.slice(0, 200);
     const os = $('#outcome-which-option');
     os.innerHTML = '<option value="">—</option>';
-    d.options.forEach((name, i) => { os.innerHTML += `<option value="${i}">${letterForIndex(i)}. ${escapeHtml(name)}</option>`; });
+    (d.options || []).forEach((name, i) => { os.innerHTML += `<option value="${i}">${letterForIndex(i)}. ${escapeHtml(name)}</option>`; });
 
     os.addEventListener('change', () => {
       const oi = os.value;
       const rs = $('#outcome-which-result');
       rs.innerHTML = '<option value="">—</option>';
-      if (oi !== '' && d.outcomes[oi]) {
+      if (oi !== '' && d.outcomes && d.outcomes[oi]) {
         d.outcomes[oi].forEach((o, idx) => { rs.innerHTML += `<option value="${idx}">${escapeHtml(o.description || 'Outcome ' + (idx + 1))}</option>`; });
         rs.innerHTML += '<option value="other">Something else</option>';
       }
@@ -1756,7 +1715,7 @@
     const ap = parseFloat($('#outcome-actual-payoff').value) || null;
     if (isNaN(co) || cr === '') return;
 
-    if (cr !== 'other' && d.outcomes[co]) {
+    if (cr !== 'other' && d.outcomes && d.outcomes[co]) {
       const idx = parseInt(cr, 10);
       Store.addCalibrationPoint(d.outcomes[co][idx]?.probability || 0, 1);
       d.outcomes[co].forEach((o, i) => { if (i !== idx) Store.addCalibrationPoint(o.probability, 0); });
@@ -1767,23 +1726,19 @@
       actualOutcome: { chosenOption: co, resultIndex: cr, actualPayoff: ap, loggedAt: Date.now() },
     });
     outcomeModal.close();
-    renderDashboard();
+    renderHistory();
   });
 
   // Clear data
   $('#clear-data-btn').addEventListener('click', () => {
     if (confirm('Delete all decisions, patterns, and accuracy data?')) {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(MEMORY_KEY);
       Store.load();
-      renderDashboard();
+      UserMemory.load();
+      renderHistory();
     }
   });
-
-  // Modals
-  const howModal = $('#how-it-works-modal');
-  $('#how-it-works-btn').addEventListener('click', () => howModal.showModal());
-  $('#modal-close-btn').addEventListener('click', () => howModal.close());
-  howModal.addEventListener('click', (e) => { if (e.target === howModal) howModal.close(); });
 
   // ================================================================
   // CONVERSATIONAL FOLLOW-UP — Hyper-personalization
@@ -2021,12 +1976,10 @@
   }
 
   function startFollowupChat() {
-    const chatEl = $('#followup-chat');
-    const messagesEl = $('#followup-messages');
-    const inputArea = $('#followup-input-area');
-    const doneArea = $('#followup-done-area');
+    const messagesEl = $('#chat-messages');
+    const inputArea = $('#chat-input-area');
+    const doneArea = $('#chat-done');
 
-    chatEl.hidden = false;
     messagesEl.innerHTML = '';
     inputArea.hidden = true;
     doneArea.hidden = true;
@@ -2034,24 +1987,21 @@
     followupIndex = 0;
     followupQueue = buildFollowupQueue(state.decision, state.category);
 
-    // Adapt header for daily vs serious
-    const daily = isDaily(state.category, state.decision);
-    const headerH4 = chatEl.querySelector('.followup-header h4');
-    const headerP = chatEl.querySelector('.followup-sub');
-    if (daily) {
-      headerH4.textContent = 'Quick context check';
-      headerP.innerHTML = 'A couple fast questions so the answer fits <em>your</em> moment.';
-    } else {
-      headerH4.textContent = 'Let me understand your world';
-      headerP.innerHTML = 'A few quick questions so the analysis fits <em>your</em> life, not a generic one.';
-    }
+    // Filter out questions we already know from memory
+    followupQueue = followupQueue.filter(q => {
+      if (UserMemory.knows(q.id)) {
+        // Pre-fill from memory
+        followupAnswers[q.id] = UserMemory.get(q.id);
+        return false;
+      }
+      return true;
+    });
 
-    // Update done text for daily
-    const doneText = chatEl.querySelector('.followup-done-text');
-    if (doneText) {
-      doneText.textContent = daily
-        ? 'Got it — running the numbers on this real quick.'
-        : 'Got it — I have what I need. Running your personalized analysis now.';
+    // If no questions needed, go straight to analysis
+    if (followupQueue.length === 0) {
+      collectContextFromAnswers();
+      runFullAnalysis();
+      return;
     }
 
     // Short delay then show first question
@@ -2059,24 +2009,29 @@
   }
 
   function showNextFollowupQuestion() {
-    const messagesEl = $('#followup-messages');
-    const inputArea = $('#followup-input-area');
-    const optionsEl = $('#followup-options');
-    const textWrap = $('#followup-text-wrap');
-    const doneArea = $('#followup-done-area');
+    const messagesEl = $('#chat-messages');
+    const inputArea = $('#chat-input-area');
+    const optionsEl = $('#chat-options');
+    const textWrap = $('#chat-text-wrap');
+    const doneArea = $('#chat-done');
 
     if (followupIndex >= followupQueue.length) {
       // All questions asked — show done
       inputArea.hidden = true;
       doneArea.hidden = false;
-      doneArea.classList.add('followup-fade-in');
-      // Collect into state.context — merge all answers (serious + daily)
-      state.context = {
-        // Serious decision keys (camelCase)
-        location: followupAnswers.location || '',
-        lifeStage: followupAnswers.life_stage || '',
-        dependents: followupAnswers.dependents || '',
-        runway: followupAnswers.runway || '',
+      // Collect into state.context
+      collectContextFromAnswers();
+      return;
+    }
+
+    // Skip if we already know this from memory
+    const q = followupQueue[followupIndex];
+    if (UserMemory.knows(q.id)) {
+      followupAnswers[q.id] = UserMemory.get(q.id);
+      followupIndex++;
+      showNextFollowupQuestion();
+      return;
+    }
         emotionalState: followupAnswers.emotional_state || '',
         riskTolerance: followupAnswers.risk_tolerance || '',
         cultural: followupAnswers.cultural || '',
@@ -2089,26 +2044,18 @@
         time_available: followupAnswers.time_available || '',
         solo_or_social: followupAnswers.solo_or_social || '',
         priority_today: followupAnswers.priority_today || '',
-        recent_pattern: followupAnswers.recent_pattern || '',
-        budget_today: followupAnswers.budget_today || '',
-      };
-      return;
-    }
-
-    const q = followupQueue[followupIndex];
-
     // Add question bubble with typing indicator first
     const typingEl = document.createElement('div');
-    typingEl.className = 'followup-msg followup-bot followup-typing';
+    typingEl.className = 'chat-msg chat-bot chat-typing';
     typingEl.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
     messagesEl.appendChild(typingEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     setTimeout(() => {
       // Replace typing with actual question
-      typingEl.classList.remove('followup-typing');
+      typingEl.classList.remove('chat-typing');
       typingEl.innerHTML = `<p>${escapeHtml(q.question)}</p>`;
-      typingEl.classList.add('followup-fade-in');
+      typingEl.classList.add('chat-fade-in');
       messagesEl.scrollTop = messagesEl.scrollHeight;
 
       // Show input area
@@ -2120,7 +2067,7 @@
         q.options.forEach(opt => {
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'followup-option-btn';
+          btn.className = 'chat-option-btn';
           btn.textContent = opt.label;
           btn.addEventListener('click', () => handleFollowupAnswer(q.id, opt.value, opt.label));
           optionsEl.appendChild(btn);
@@ -2128,7 +2075,7 @@
         // Add skip
         const skipBtn = document.createElement('button');
         skipBtn.type = 'button';
-        skipBtn.className = 'followup-option-btn followup-skip';
+        skipBtn.className = 'chat-option-btn chat-skip';
         skipBtn.textContent = 'Skip';
         skipBtn.addEventListener('click', () => handleFollowupAnswer(q.id, '', 'Skipped'));
         optionsEl.appendChild(skipBtn);
@@ -2136,17 +2083,16 @@
       } else {
         optionsEl.hidden = true;
         textWrap.hidden = false;
-        const input = $('#followup-text');
+        const input = $('#chat-text-input');
         input.placeholder = q.placeholder || 'Type your answer...';
         input.value = '';
         input.focus();
-        // Handle enter
         input.onkeydown = (e) => {
           if (e.key === 'Enter' && input.value.trim()) {
             handleFollowupAnswer(q.id, input.value.trim(), input.value.trim());
           }
         };
-        $('#followup-send').onclick = () => {
+        $('#chat-send').onclick = () => {
           if (input.value.trim()) {
             handleFollowupAnswer(q.id, input.value.trim(), input.value.trim());
           }
@@ -2155,16 +2101,41 @@
     }, 800);
   }
 
+  function collectContextFromAnswers() {
+    state.context = {
+      location: followupAnswers.location || UserMemory.get('location') || '',
+      lifeStage: followupAnswers.life_stage || UserMemory.get('life_stage') || '',
+      dependents: followupAnswers.dependents || UserMemory.get('dependents') || '',
+      runway: followupAnswers.runway || UserMemory.get('runway') || '',
+      emotionalState: followupAnswers.emotional_state || '',
+      riskTolerance: followupAnswers.risk_tolerance || UserMemory.get('risk_tolerance') || '',
+      cultural: followupAnswers.cultural || UserMemory.get('cultural') || '',
+      healthEnergy: followupAnswers.health_energy || '',
+      supportNetwork: followupAnswers.support_network || '',
+      timePressure: followupAnswers.time_pressure || '',
+      pastAttempts: followupAnswers.past_attempts || '',
+      mood_right_now: followupAnswers.mood_right_now || '',
+      time_available: followupAnswers.time_available || '',
+      solo_or_social: followupAnswers.solo_or_social || '',
+      priority_today: followupAnswers.priority_today || '',
+      recent_pattern: followupAnswers.recent_pattern || '',
+      budget_today: followupAnswers.budget_today || '',
+    };
+  }
+
   function handleFollowupAnswer(questionId, value, displayText) {
-    const messagesEl = $('#followup-messages');
-    const inputArea = $('#followup-input-area');
+    const messagesEl = $('#chat-messages');
+    const inputArea = $('#chat-input-area');
 
     // Store answer
     followupAnswers[questionId] = value;
 
+    // Learn from answer — persist stable traits
+    UserMemory.learnFromAnswer(questionId, value);
+
     // Add user answer bubble
     const userMsg = document.createElement('div');
-    userMsg.className = 'followup-msg followup-user followup-fade-in';
+    userMsg.className = 'chat-msg chat-user chat-fade-in';
     userMsg.innerHTML = `<p>${escapeHtml(displayText)}</p>`;
     messagesEl.appendChild(userMsg);
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -2176,94 +2147,58 @@
     setTimeout(() => showNextFollowupQuestion(), 400);
   }
 
-  // Wire "Run full analysis" to start conversation follow-up
-  $('#ai-analyze-btn').addEventListener('click', () => {
-    state.decision = decisionInput.value.trim();
-    state.category = $('#decision-category').value;
-    state.timeHorizon = $('#time-horizon').value;
-    state.deadline = $('#decision-deadline').value;
-
-    // Hide form and show conversation
-    const methodPreview = $('#methodology-preview');
-    if (methodPreview) methodPreview.hidden = true;
-    $('#ai-analyze-btn').closest('.step-nav').hidden = true;
-
-    startFollowupChat();
+  // Wire "Run my analysis" button
+  $('#chat-run-btn').addEventListener('click', () => {
+    runFullAnalysis();
   });
 
-  // Handle "Run analysis" from the follow-up done area
-  $('#followup-run-btn').addEventListener('click', async () => {
-    const chatEl = $('#followup-chat');
-    const loading = $('#ai-loading');
+  function runFullAnalysis() {
+    // Show thinking screen
+    showScreen('thinking');
 
-    chatEl.hidden = true;
-    loading.hidden = false;
+    // Collect options from parsed description
+    collectOptionsFromParsed();
 
-    // Animate pipeline steps
-    const pipelineSteps = $$('.pipeline-step', $('#loading-pipeline'));
-    pipelineSteps.forEach(s => { s.classList.remove('active', 'done'); });
-    let pipelineIdx = 0;
-    const pipelineInterval = setInterval(() => {
-      if (pipelineIdx > 0 && pipelineIdx <= pipelineSteps.length) {
-        pipelineSteps[pipelineIdx - 1].classList.remove('active');
-        pipelineSteps[pipelineIdx - 1].classList.add('done');
-      }
-      if (pipelineIdx < pipelineSteps.length) {
-        pipelineSteps[pipelineIdx].classList.add('active');
-        pipelineIdx++;
+    // Animate thinking steps
+    const stepsEl = $('#thinking-steps');
+    const steps = ['Reading your question', 'Running 7 frameworks', 'Personalizing the answer'];
+    stepsEl.innerHTML = '';
+    let stepIdx = 0;
+
+    const stepInterval = setInterval(() => {
+      if (stepIdx < steps.length) {
+        const s = document.createElement('div');
+        s.className = 'thinking-step chat-fade-in';
+        s.textContent = steps[stepIdx];
+        stepsEl.appendChild(s);
+        stepIdx++;
       } else {
-        clearInterval(pipelineInterval);
+        clearInterval(stepInterval);
       }
-    }, 2200);
+    }, 800);
 
-    try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: state.decision,
-          category: state.category,
-          timeHorizon: state.timeHorizon,
-          deadline: state.deadline,
-          personalContext: state.context,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `API error ${res.status}`);
-      }
-
-      const { analysis } = await res.json();
-      clearInterval(pipelineInterval);
-      pipelineSteps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
-      renderAIResults(analysis);
-      showScreen('results');
-    } catch (err) {
-      clearInterval(pipelineInterval);
-      console.error('AI analysis failed:', err);
-      loading.hidden = true;
-
-      // Restore form controls
-      const methodPreview = $('#methodology-preview');
-      if (methodPreview) methodPreview.hidden = false;
-      const stepNav = $('[data-wizard-step="1"] .step-nav');
-      if (stepNav) stepNav.hidden = false;
-      chatEl.hidden = true;
-      validateStep1();
-      alert(`Analysis unavailable: ${err.message}\n\nUse "Build manually" to analyze with the local engine instead.`);
-    }
-  });
+    // Run analysis after brief delay for animation
+    setTimeout(() => {
+      clearInterval(stepInterval);
+      runAnalysis();
+      autoSaveDecision();
+      showScreen('answer');
+    }, 2800);
+  }
 
   // ================================================================
   // VOICE INPUT
   // ================================================================
-  const voiceBtn = $('#voice-btn');
+  const micBtn = $('#mic-btn');
+  const micHint = $('#mic-hint');
+  const micIcon = micBtn ? micBtn.querySelector('.mic-icon') : null;
+  const micStop = micBtn ? micBtn.querySelector('.mic-stop') : null;
+  const micRing = $('#mic-ring');
   let recognition = null;
   let voiceStream = null;
   let voiceAnimFrame = null;
 
-  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  if (micBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRec();
     recognition.continuous = true;
@@ -2282,16 +2217,15 @@
         }
       }
       decisionInput.value = finalTranscript + interim;
-      const len = decisionInput.value.length;
-      $('#char-count').textContent = `${len.toLocaleString()} / 3,000`;
-      validateStep1();
+      autoResize();
+      validateInput();
     };
 
     recognition.onerror = () => stopVoice();
     recognition.onend = () => stopVoice();
 
-    voiceBtn.addEventListener('click', () => {
-      if (voiceBtn.classList.contains('recording')) {
+    micBtn.addEventListener('click', () => {
+      if (micBtn.classList.contains('recording')) {
         stopVoice();
       } else {
         startVoice();
@@ -2300,9 +2234,13 @@
 
     function startVoice() {
       finalTranscript = decisionInput.value;
-      voiceBtn.classList.add('recording');
+      micBtn.classList.add('recording');
+      if (micIcon) micIcon.style.display = 'none';
+      if (micStop) micStop.style.display = 'block';
+      if (micRing) micRing.classList.add('active');
+      if (micHint) micHint.textContent = 'Listening...';
       recognition.start();
-      // Start waveform visualization
+
       navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
         voiceStream = stream;
         const ctx = new AudioContext();
@@ -2312,20 +2250,22 @@
         source.connect(analyser);
         const data = new Uint8Array(analyser.frequencyBinCount);
         const canvas = $('#voice-waveform');
+        if (!canvas) return;
+        canvas.style.display = 'block';
         const cCtx = canvas.getContext('2d');
         function drawWave() {
           voiceAnimFrame = requestAnimationFrame(drawWave);
           analyser.getByteFrequencyData(data);
-          cCtx.clearRect(0, 0, 80, 24);
-          const bars = 16;
+          cCtx.clearRect(0, 0, canvas.width, canvas.height);
+          const bars = 20;
           const w = 3;
-          const gap = 2;
+          const gap = 3;
           for (let i = 0; i < bars; i++) {
             const v = data[i] / 255;
-            const h = Math.max(2, v * 22);
+            const h = Math.max(2, v * canvas.height);
             const x = i * (w + gap);
             cCtx.fillStyle = v > 0.5 ? '#D71921' : 'rgba(255,255,255,0.3)';
-            cCtx.fillRect(x, 12 - h / 2, w, h);
+            cCtx.fillRect(x, canvas.height / 2 - h / 2, w, h);
           }
         }
         drawWave();
@@ -2333,16 +2273,24 @@
     }
 
     function stopVoice() {
-      voiceBtn.classList.remove('recording');
+      micBtn.classList.remove('recording');
+      if (micIcon) micIcon.style.display = '';
+      if (micStop) micStop.style.display = 'none';
+      if (micRing) micRing.classList.remove('active');
+      if (micHint) micHint.textContent = 'Tap to speak';
       try { recognition.stop(); } catch {}
       if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
       if (voiceAnimFrame) { cancelAnimationFrame(voiceAnimFrame); voiceAnimFrame = null; }
       const canvas = $('#voice-waveform');
-      const cCtx = canvas.getContext('2d');
-      cCtx.clearRect(0, 0, 80, 24);
+      if (canvas) {
+        canvas.style.display = 'none';
+        const cCtx = canvas.getContext('2d');
+        cCtx.clearRect(0, 0, canvas.width, canvas.height);
+      }
     }
-  } else {
-    voiceBtn.style.display = 'none';
+  } else if (micBtn) {
+    micBtn.style.display = 'none';
+    if (micHint) micHint.style.display = 'none';
   }
 
   // ================================================================
@@ -2408,8 +2356,8 @@
   // SHARE
   // ================================================================
   $('#share-btn').addEventListener('click', async () => {
-    const verdict = $('.verdict-heading')?.textContent || 'My Rational Analysis';
-    const sub = $('#verdict-sub')?.textContent || '';
+    const verdict = $('#answer-heading')?.textContent || 'My Rational Analysis';
+    const sub = $('#answer-subtitle')?.textContent || '';
     const shareText = `${verdict}\n${sub}\n\nAnalyzed with Rational — 7 frameworks, 1 clear answer.`;
 
     if (navigator.share) {
@@ -2430,29 +2378,20 @@
     }
   });
 
-  // Hook into screen transitions to trigger animations
-  const _origShowScreen = showScreen;
-  showScreen = function(id) {
-    _origShowScreen(id);
-    if (id === 'results') {
-      spawnParticles();
-      setTimeout(observeRevealSections, 100);
-    }
-  };
-
   // PWA
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
   }
 
+  // URL shortcuts
   const urlParams = new URLSearchParams(window.location.search);
   const urlAction = urlParams.get('action');
   if (urlAction === 'new') {
-    showScreen('wizard'); showStep(1); seedOptions();
-    setTimeout(() => decisionInput.focus(), 100);
+    decisionInput.focus();
     window.history.replaceState({}, '', '/');
   } else if (urlAction === 'dashboard') {
-    renderDashboard(); showScreen('dashboard');
+    renderHistory();
+    showScreen('history');
     window.history.replaceState({}, '', '/');
   }
 

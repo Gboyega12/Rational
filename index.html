@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Rational — make decisions you can trust. Describe your situation, get a clear answer.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Rational — your daily decision partner. Ask anything, get a clear answer backed by math.">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,475 +19,247 @@
 <body>
   <a href="#main-content" class="skip-link">Skip to content</a>
 
-  <!-- Dot grid background -->
-  <div class="dot-grid" aria-hidden="true"></div>
-
-  <header class="header" role="banner">
-    <div class="container header-inner">
-      <a href="/" class="logo" id="logo-home" aria-label="Rational home">
-        <div class="logo-glyph" aria-hidden="true">
-          <span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span>
-          <span class="dot d4"></span><span class="dot d5"></span>
-        </div>
-        <span class="logo-text">Rational</span>
-      </a>
-      <nav class="nav" aria-label="Primary">
-        <button id="dashboard-btn" class="nav-link" type="button">History</button>
-        <button id="how-it-works-btn" class="nav-link" type="button">How it works</button>
-      </nav>
-    </div>
-  </header>
-
   <main id="main-content">
 
-    <!-- ====== LANDING ====== -->
-    <section id="landing" class="screen active" aria-labelledby="hero-heading">
-      <div class="container landing-wrap">
-        <div class="hero">
-          <div class="hero-glyph" aria-hidden="true">
-            <div class="glyph-ring ring-1"></div>
-            <div class="glyph-ring ring-2"></div>
-            <div class="glyph-ring ring-3"></div>
-            <div class="glyph-dot"></div>
+    <!-- ====== HOME — Journal-style voice-first prompt ====== -->
+    <section id="home" class="screen active" aria-labelledby="home-heading">
+      <div class="container home-wrap">
+
+        <!-- Top bar -->
+        <div class="top-bar">
+          <div class="top-bar-left">
+            <span class="logo-mark">R</span>
+            <span class="logo-text-sm">Rational</span>
           </div>
-          <h1 id="hero-heading">Don't guess.<br><span class="accent">Do the math.</span></h1>
-          <p class="hero-sub">From "should I quit my job?" to "pizza or sushi?" — Rational runs every decision through 7 proven frameworks and gives you a straight answer with real numbers. Big or small, quantified.</p>
-          <button id="start-btn" class="btn btn-primary" type="button">
-            <span>Start</span>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-        </div>
-
-        <div id="returning-stats" class="returning-stats" hidden>
-          <div class="stat"><span class="stat-num" id="stat-decisions">0</span><span class="stat-label">decisions</span></div>
-          <div class="stat"><span class="stat-num" id="stat-brier">—</span><span class="stat-label">accuracy</span></div>
-          <div class="stat"><span class="stat-num" id="stat-streak">0</span><span class="stat-label">tracked</span></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ====== WIZARD ====== -->
-    <section id="wizard" class="screen" aria-labelledby="wizard-heading">
-      <div class="container wizard-wrap">
-        <h2 id="wizard-heading" class="sr-only">Decision builder</h2>
-
-        <!-- Progress -->
-        <div class="progress-bar" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="3">
-          <div class="progress-fill" id="progress-fill" style="width:33.3%"></div>
-          <span class="progress-label" id="progress-label">1 of 3</span>
-        </div>
-
-        <!-- STEP 1: Describe -->
-        <div class="wizard-step active" data-wizard-step="1" role="group" aria-labelledby="s1-heading">
-          <div class="step-intro">
-            <div class="step-number" aria-hidden="true">01</div>
-            <h3 id="s1-heading">What's the situation?</h3>
-            <p>Write it like you'd explain it to a smart friend. Include the context that matters — your background, constraints, what's at stake.</p>
-          </div>
-
-          <div class="field textarea-wrap">
-            <label for="decision-input" class="sr-only">Describe your decision</label>
-            <textarea id="decision-input" class="input textarea" rows="6" placeholder="Big or small — try anything: 'Should I watch a series or paint tonight?' · 'Pizza or sushi for dinner?' · 'Should I quit my job and start a company?' · 'Is it worth going to the gym when I'm this tired?' · 'I'm deciding between a certification or going all-in on my startup...'" maxlength="3000" aria-describedby="char-count"></textarea>
-            <div class="textarea-toolbar">
-              <button type="button" class="voice-btn" id="voice-btn" aria-label="Dictate with voice">
-                <svg class="voice-icon-mic" width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="7" y="2" width="6" height="10" rx="3" stroke="currentColor" stroke-width="1.3"/><path d="M4 10a6 6 0 0012 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M10 16v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-                <svg class="voice-icon-stop" width="20" height="20" viewBox="0 0 20 20" fill="none" style="display:none"><rect x="5" y="5" width="10" height="10" rx="2" fill="currentColor"/></svg>
-                <canvas id="voice-waveform" class="voice-waveform" width="80" height="24"></canvas>
-                <span class="voice-label">Speak</span>
-              </button>
-              <span id="char-count" class="char-count" aria-live="polite">0 / 3,000</span>
-            </div>
-          </div>
-
-          <div class="field-row">
-            <div class="field">
-              <label for="decision-category">Area</label>
-              <select id="decision-category" class="input select">
-                <option value="">Choose</option>
-                <option value="daily">Daily life</option>
-                <option value="career">Career</option>
-                <option value="finance">Money</option>
-                <option value="business">Business</option>
-                <option value="health">Health</option>
-                <option value="relationship">Relationships</option>
-                <option value="education">Education</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="time-horizon">Timeframe</label>
-              <select id="time-horizon" class="input select">
-                <option value="">Choose</option>
-                <option value="days">Days</option>
-                <option value="weeks">Weeks</option>
-                <option value="months">Months</option>
-                <option value="1year">~1 year</option>
-                <option value="years">Years</option>
-                <option value="decade">10+ years</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="decision-deadline">Deadline <span class="muted">(optional)</span></label>
-            <input id="decision-deadline" class="input" type="date">
-          </div>
-
-          <div class="step-nav">
-            <button type="button" class="btn btn-ghost" id="back-to-landing">Cancel</button>
-            <div class="step-nav-right">
-              <button type="button" class="btn btn-outline next-step" data-next="2" disabled>Build manually</button>
-              <button type="button" class="btn btn-accent" id="ai-analyze-btn" disabled>
-                <span>Run full analysis</span>
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3 9h12M11 5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Methodology preview — shows what the analysis does -->
-          <div id="methodology-preview" class="methodology-preview">
-            <p class="methodology-label">Your situation gets run through 7 decision frameworks:</p>
-            <div class="methodology-pills">
-              <span class="method-pill">Expected Value</span>
-              <span class="method-pill">Base Rate</span>
-              <span class="method-pill">Sunk Cost</span>
-              <span class="method-pill">Bayesian Update</span>
-              <span class="method-pill">Survivorship Bias</span>
-              <span class="method-pill">Kelly Criterion</span>
-              <span class="method-pill">Sensitivity</span>
-            </div>
-            <p class="methodology-sub">Each one catches a different blind spot. Together they give you a straight answer backed by math, not vibes.</p>
-          </div>
-
-          <!-- Conversational follow-up -->
-          <div id="followup-chat" class="followup-chat" hidden>
-            <div class="followup-header">
-              <div class="followup-glyph" aria-hidden="true">
-                <div class="glyph-ring ring-1 ring-pulse" style="width:28px;height:28px"></div>
-                <div class="glyph-dot" style="width:6px;height:6px"></div>
-              </div>
-              <div>
-                <h4>Let me understand your world</h4>
-                <p class="followup-sub">A few quick questions so the analysis fits <em>your</em> life, not a generic one.</p>
-              </div>
-            </div>
-            <div id="followup-messages" class="followup-messages"></div>
-            <div id="followup-input-area" class="followup-input-area" hidden>
-              <div id="followup-options" class="followup-options"></div>
-              <div id="followup-text-wrap" class="followup-text-wrap" hidden>
-                <input id="followup-text" class="input followup-text-input" type="text" placeholder="Type your answer..." maxlength="200">
-                <button type="button" class="btn btn-accent followup-send" id="followup-send">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8l12-5-5 12-2-5-5-2z" fill="currentColor"/></svg>
-                </button>
-              </div>
-            </div>
-            <div id="followup-done-area" class="followup-done-area" hidden>
-              <p class="followup-done-text">Got it — I have what I need. Running your personalized analysis now.</p>
-              <button type="button" class="btn btn-accent" id="followup-run-btn">
-                <span>Run analysis</span>
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3 9h12M11 5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Loading state — live pipeline -->
-          <div id="ai-loading" class="ai-loading" hidden>
-            <div class="loading-rings" aria-hidden="true">
-              <div class="loading-ring r1"></div>
-              <div class="loading-ring r2"></div>
-              <div class="loading-ring r3"></div>
-              <div class="loading-dot"></div>
-            </div>
-            <p class="loading-text">Running your analysis...</p>
-            <div class="loading-pipeline" id="loading-pipeline">
-              <div class="pipeline-step" data-step="0"><span class="pipeline-dot"></span>Reading your situation</div>
-              <div class="pipeline-step" data-step="1"><span class="pipeline-dot"></span>Calculating expected value</div>
-              <div class="pipeline-step" data-step="2"><span class="pipeline-dot"></span>Checking base rates</div>
-              <div class="pipeline-step" data-step="3"><span class="pipeline-dot"></span>Detecting sunk cost traps</div>
-              <div class="pipeline-step" data-step="4"><span class="pipeline-dot"></span>Updating with evidence</div>
-              <div class="pipeline-step" data-step="5"><span class="pipeline-dot"></span>Filtering survivorship bias</div>
-              <div class="pipeline-step" data-step="6"><span class="pipeline-dot"></span>Sizing your commitment</div>
-              <div class="pipeline-step" data-step="7"><span class="pipeline-dot"></span>Forming verdict</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- STEP 2: Options -->
-        <div class="wizard-step" data-wizard-step="2" role="group" aria-labelledby="s2-heading">
-          <div class="step-intro">
-            <div class="step-number" aria-hidden="true">02</div>
-            <h3 id="s2-heading">What are you choosing between?</h3>
-            <p>For each option, name it and describe what the best and worst realistic outcomes look like.</p>
-          </div>
-
-          <div id="autofill-banner" class="autofill-banner" hidden>
-            <div class="autofill-icon" aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L2 14h12L8 2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v4M8 12v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-            </div>
-            <div>
-              <strong>We pre-filled this from your description.</strong>
-              <span>Numbers come from published research. Edit anything that doesn't match your situation.</span>
-            </div>
-          </div>
-
-          <div id="options-container" class="options-container"></div>
-
-          <button type="button" class="btn btn-outline add-option-btn" id="add-option-btn">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            Add option
-          </button>
-
-          <div class="step-nav">
-            <button type="button" class="btn btn-ghost prev-step" data-prev="1">Back</button>
-            <button type="button" class="btn btn-primary next-step" data-next="3" disabled>Continue</button>
-          </div>
-        </div>
-
-        <!-- STEP 3: Quick context -->
-        <div class="wizard-step" data-wizard-step="3" role="group" aria-labelledby="s3-heading">
-          <div class="step-intro">
-            <div class="step-number" aria-hidden="true">03</div>
-            <h3 id="s3-heading">Quick context <span class="muted">(all optional)</span></h3>
-            <p>Answer what you can. Skip what you don't know. Even rough guesses help.</p>
-          </div>
-
-          <div class="context-card">
-            <div class="context-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3L3 17h14L10 3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M10 8v4M10 14v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-            </div>
-            <div class="context-body">
-              <h4>Have you already invested heavily in one option?</h4>
-              <p>Time, money, emotion — anything that makes walking away hard.</p>
-              <select id="sunk-cost-input" class="input select">
-                <option value="">—</option>
-                <option value="none">No — starting fresh</option>
-                <option value="moderate">Some — but I could let it go</option>
-                <option value="heavy">A lot — it would hurt to walk away</option>
-              </select>
-              <div id="sunk-cost-option-group" class="sub-field" hidden>
-                <label for="sunk-cost-which">Which one?</label>
-                <select id="sunk-cost-which" class="input select"></select>
-              </div>
-            </div>
-          </div>
-
-          <div class="context-card">
-            <div class="context-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M4 18c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3"/></svg>
-            </div>
-            <div class="context-body">
-              <h4>Inspired by someone's success?</h4>
-              <p>A friend, a podcast, a famous example that's making one option feel more likely.</p>
-              <select id="survivorship-input" class="input select">
-                <option value="">—</option>
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="context-card">
-            <div class="context-icon" aria-hidden="true">
+          <div class="top-bar-right">
+            <button id="history-btn" class="icon-btn" type="button" aria-label="History">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.3"/><path d="M10 6v5l3 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-            </div>
-            <div class="context-body">
-              <h4>What's the typical success rate?</h4>
-              <p id="base-rate-hint">If you know a rough number for people in your situation, enter it.</p>
-              <input id="base-rate-input" class="input" type="number" min="0" max="100" step="1" placeholder="e.g. 15%">
-              <p id="base-rate-fact" class="research-fact" hidden></p>
-            </div>
-          </div>
-
-          <div class="context-card">
-            <div class="context-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="5" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M7 5V3.5a3 3 0 016 0V5" stroke="currentColor" stroke-width="1.3"/></svg>
-            </div>
-            <div class="context-body">
-              <h4>Total budget?</h4>
-              <p>The most you could realistically put into this.</p>
-              <input id="bankroll-input" class="input" type="number" min="0" step="1" placeholder="e.g. 50000">
-            </div>
-          </div>
-
-          <div class="step-nav">
-            <button type="button" class="btn btn-ghost prev-step" data-prev="2">Back</button>
-            <button type="button" class="btn btn-primary btn-accent" id="run-analysis-btn">
-              <span>Analyze</span>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
         </div>
+
+        <!-- Dynamic greeting -->
+        <div class="greeting" id="greeting-area">
+          <h1 id="home-heading">What's on your mind?</h1>
+          <p id="greeting-sub">Ask me anything — big life decisions or what to eat for dinner.</p>
+        </div>
+
+        <!-- Recent questions (from memory) -->
+        <div id="recent-questions" class="recent-questions" hidden>
+          <p class="recent-label">Recent</p>
+          <div id="recent-list" class="recent-list"></div>
+        </div>
+
+        <!-- Voice-first input -->
+        <div class="input-dock">
+          <div class="input-row">
+            <textarea id="decision-input" class="journal-input" rows="1" placeholder="What should I do about..." maxlength="3000" aria-label="What's your question?"></textarea>
+            <button type="button" class="send-btn" id="send-btn" disabled aria-label="Analyze">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-7 14-2-5-5-2z" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <button type="button" class="mic-btn" id="mic-btn" aria-label="Speak your question">
+            <div class="mic-ring" id="mic-ring"></div>
+            <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M5 12a7 7 0 0014 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 19v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg class="mic-stop" width="24" height="24" viewBox="0 0 24 24" fill="none" style="display:none"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>
+            <canvas id="voice-waveform" class="mic-waveform" width="120" height="32"></canvas>
+          </button>
+          <p class="mic-hint" id="mic-hint">Tap to speak</p>
+        </div>
+
       </div>
     </section>
 
-    <!-- ====== RESULTS ====== -->
-    <section id="results" class="screen" aria-labelledby="results-heading">
-      <div class="container results-wrap">
+    <!-- ====== THINKING — Loading state ====== -->
+    <section id="thinking" class="screen" aria-labelledby="thinking-heading">
+      <div class="container thinking-wrap">
+        <h2 id="thinking-heading" class="sr-only">Analyzing</h2>
+        <div class="thinking-visual">
+          <div class="thinking-ring r1"></div>
+          <div class="thinking-ring r2"></div>
+          <div class="thinking-ring r3"></div>
+          <div class="thinking-dot"></div>
+        </div>
+        <p class="thinking-text" id="thinking-text">Thinking...</p>
+        <div class="thinking-steps" id="thinking-steps"></div>
+      </div>
+    </section>
 
-        <div class="results-hero">
-          <div class="verdict-glyph" aria-hidden="true">
-            <div class="glyph-ring ring-1 ring-pulse"></div>
-            <div class="glyph-ring ring-2 ring-pulse" style="animation-delay:.3s"></div>
-            <div class="glyph-ring ring-3 ring-pulse" style="animation-delay:.6s"></div>
-            <div class="glyph-dot dot-verdict"></div>
+    <!-- ====== FOLLOW-UP — Conversational context ====== -->
+    <section id="followup" class="screen" aria-labelledby="followup-heading">
+      <div class="container followup-wrap">
+        <h2 id="followup-heading" class="sr-only">Follow-up questions</h2>
+
+        <button type="button" class="back-link" id="followup-back">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back
+        </button>
+
+        <div id="chat-messages" class="chat-messages"></div>
+        <div id="chat-input-area" class="chat-input-area" hidden>
+          <div id="chat-options" class="chat-options"></div>
+          <div id="chat-text-wrap" class="chat-text-wrap" hidden>
+            <input id="chat-text-input" class="journal-input chat-text-field" type="text" placeholder="Type your answer..." maxlength="200">
+            <button type="button" class="send-btn" id="chat-send">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8l12-5-5 12-2-5-5-2z" fill="currentColor"/></svg>
+            </button>
           </div>
-          <h2 id="results-heading" class="verdict-heading"></h2>
-          <p id="verdict-sub" class="verdict-sub"></p>
+        </div>
+        <div id="chat-done" class="chat-done" hidden>
+          <button type="button" class="btn-primary-full" id="chat-run-btn">
+            <span>Run my analysis</span>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M11 5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== ANSWER — Progressive disclosure results ====== -->
+    <section id="answer" class="screen" aria-labelledby="answer-heading">
+      <div class="container answer-wrap">
+
+        <button type="button" class="back-link" id="answer-back">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          New question
+        </button>
+
+        <!-- THE ANSWER — big, clear, immediate -->
+        <div class="answer-hero" id="answer-hero">
           <div class="verdict-particles" id="verdict-particles" aria-hidden="true"></div>
+          <p class="answer-label">The answer</p>
+          <h2 id="answer-heading" class="answer-title"></h2>
+          <p id="answer-subtitle" class="answer-sub"></p>
+        </div>
+
+        <!-- WHY — progressive disclosure -->
+        <div class="why-section">
+          <p class="why-label">Why?</p>
+
+          <details class="why-card reveal-section" id="why-ev">
+            <summary>
+              <span class="why-num">01</span>
+              <span>The math</span>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </summary>
+            <div class="why-body">
+              <div id="ev-narrative" class="narrative"></div>
+              <div id="ev-bars" class="ev-bars"></div>
+            </div>
+          </details>
+
+          <details class="why-card reveal-section" id="why-base">
+            <summary>
+              <span class="why-num">02</span>
+              <span>Reality check</span>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </summary>
+            <div class="why-body">
+              <div id="base-narrative" class="narrative"></div>
+              <div id="base-visual" class="base-visual"></div>
+            </div>
+          </details>
+
+          <details class="why-card reveal-section" id="why-sunk">
+            <summary>
+              <span class="why-num">03</span>
+              <span>Sunk cost check</span>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </summary>
+            <div class="why-body"><div id="sunk-narrative" class="narrative"></div></div>
+          </details>
+
+          <details class="why-card reveal-section" id="why-bayes">
+            <summary>
+              <span class="why-num">04</span>
+              <span>Evidence update</span>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </summary>
+            <div class="why-body">
+              <div id="bayes-narrative" class="narrative"></div>
+              <div id="bayes-visual" class="bayes-visual"></div>
+              <pre id="bayes-math" class="math-block" hidden></pre>
+            </div>
+          </details>
+
+          <details class="why-card reveal-section" id="why-surv">
+            <summary>
+              <span class="why-num">05</span>
+              <span>Bias filter</span>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </summary>
+            <div class="why-body"><div id="surv-narrative" class="narrative"></div></div>
+          </details>
+
+          <details class="why-card reveal-section" id="why-kelly">
+            <summary>
+              <span class="why-num">06</span>
+              <span>How much to commit</span>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </summary>
+            <div class="why-body">
+              <div id="kelly-narrative" class="narrative"></div>
+              <div id="kelly-visual" class="kelly-visual"></div>
+              <pre id="kelly-math" class="math-block" hidden></pre>
+            </div>
+          </details>
+
+          <details class="why-card reveal-section" id="why-sensitivity">
+            <summary>
+              <span class="why-num">07</span>
+              <span>What if you're wrong?</span>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </summary>
+            <div class="why-body">
+              <div id="sensitivity-sliders" class="sensitivity-sliders"></div>
+              <div id="sensitivity-result" class="sensitivity-result" aria-live="polite"></div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Personalized insights -->
+        <div id="personal-section" class="personal-section" hidden>
+          <div id="final-verdict" class="final-verdict"></div>
         </div>
 
         <div id="expiry-banner" class="expiry-banner" hidden role="alert"></div>
 
-        <!-- Section 1: Expected Value -->
-        <article class="analysis-section reveal-section" aria-labelledby="ev-heading">
-          <div class="section-glyph" aria-hidden="true"><div class="glyph-diamond"></div></div>
-          <div class="section-label">
-            <span class="section-num">01</span>
-            <h3 id="ev-heading">Expected Value — what does the math say?</h3>
-          </div>
-          <div id="ev-narrative" class="narrative"></div>
-          <div id="ev-bars" class="ev-bars"></div>
-          <details class="math-toggle"><summary>Show calculation</summary><pre id="ev-math" class="math-block"></pre></details>
-        </article>
-
-        <!-- Section 2: Base Rate -->
-        <article class="analysis-section reveal-section" aria-labelledby="base-heading">
-          <div class="section-glyph" aria-hidden="true"><div class="glyph-circle"></div></div>
-          <div class="section-label">
-            <span class="section-num">02</span>
-            <h3 id="base-heading">Reality check — what usually happens?</h3>
-          </div>
-          <div id="base-narrative" class="narrative"></div>
-          <div id="base-visual" class="base-visual"></div>
-          <details class="math-toggle"><summary>Show calculation</summary><pre id="bayes-math" class="math-block"></pre></details>
-        </article>
-
-        <!-- Section 3: Sunk Cost -->
-        <article class="analysis-section reveal-section" aria-labelledby="sunk-heading">
-          <div class="section-glyph" aria-hidden="true"><div class="glyph-triangle"></div></div>
-          <div class="section-label">
-            <span class="section-num">03</span>
-            <h3 id="sunk-heading">Sunk cost — what should you ignore?</h3>
-          </div>
-          <div id="sunk-narrative" class="narrative"></div>
-        </article>
-
-        <!-- Section 4: Bayesian Update -->
-        <article class="analysis-section reveal-section" aria-labelledby="bayes-heading">
-          <div class="section-glyph" aria-hidden="true"><div class="glyph-cross"></div></div>
-          <div class="section-label">
-            <span class="section-num">04</span>
-            <h3 id="bayes-heading">How should new evidence shift your view?</h3>
-          </div>
-          <div id="bayes-narrative" class="narrative"></div>
-          <div id="bayes-visual" class="bayes-visual"></div>
-        </article>
-
-        <!-- Section 5: Survivorship -->
-        <article class="analysis-section reveal-section" aria-labelledby="surv-heading">
-          <div class="section-glyph" aria-hidden="true"><div class="glyph-hexagon"></div></div>
-          <div class="section-label">
-            <span class="section-num">05</span>
-            <h3 id="surv-heading">Survivorship bias — wrong role models?</h3>
-          </div>
-          <div id="surv-narrative" class="narrative"></div>
-        </article>
-
-        <!-- Section 6: Kelly -->
-        <article class="analysis-section reveal-section" aria-labelledby="kelly-heading">
-          <div class="section-glyph" aria-hidden="true"><div class="glyph-diamond"></div></div>
-          <div class="section-label">
-            <span class="section-num">06</span>
-            <h3 id="kelly-heading">How much should you commit?</h3>
-          </div>
-          <div id="kelly-narrative" class="narrative"></div>
-          <div id="kelly-visual" class="kelly-visual"></div>
-          <details class="math-toggle"><summary>Show calculation</summary><pre id="kelly-math" class="math-block"></pre></details>
-        </article>
-
-        <!-- Section 7: Sensitivity -->
-        <article class="analysis-section reveal-section" aria-labelledby="sens-heading">
-          <div class="section-glyph" aria-hidden="true"><div class="glyph-circle"></div></div>
-          <div class="section-label">
-            <span class="section-num">07</span>
-            <h3 id="sens-heading">What if your guesses are off?</h3>
-          </div>
-          <div id="sensitivity-sliders" class="sensitivity-sliders"></div>
-          <div id="sensitivity-result" class="sensitivity-result" aria-live="polite"></div>
-        </article>
-
-        <!-- Final Verdict -->
-        <article class="analysis-section verdict-section" aria-labelledby="final-heading">
-          <div class="section-label">
-            <span class="section-num accent">!</span>
-            <h3 id="final-heading">The verdict</h3>
-          </div>
-          <div id="final-verdict" class="final-verdict"></div>
-        </article>
-
-        <!-- Personal patterns -->
-        <article id="personal-bias-card" class="analysis-section" hidden aria-labelledby="profile-heading">
-          <div class="section-label">
-            <span class="section-num">~</span>
-            <h3 id="profile-heading">Your patterns</h3>
-          </div>
-          <div id="bias-profile-content" class="bias-profile-content"></div>
-        </article>
-
-        <div class="results-actions">
-          <button type="button" class="btn btn-ghost" id="start-over-btn">Start over</button>
-          <button type="button" class="btn btn-outline" id="export-btn">Export</button>
-          <button type="button" class="btn btn-share" id="share-btn">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="12" cy="3" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="4" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="13" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M6 7l4-3M6 9l4 3" stroke="currentColor" stroke-width="1.2"/></svg>
-            <span>Share</span>
+        <!-- Actions -->
+        <div class="answer-actions">
+          <button type="button" class="action-btn" id="share-btn">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="14" cy="3.5" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="4" cy="9" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="14" cy="14.5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M6 8l6-3.5M6 10l6 3.5" stroke="currentColor" stroke-width="1.2"/></svg>
+            Share
           </button>
-          <button type="button" class="btn btn-primary" id="save-decision-btn">Save</button>
+          <button type="button" class="action-btn" id="export-btn">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 12v3h12v-3M9 3v9M5 7l4-4 4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Export
+          </button>
         </div>
-        <div id="share-toast" class="share-toast" hidden>Link copied — share your analysis</div>
+        <div id="share-toast" class="share-toast" hidden>Link copied</div>
       </div>
     </section>
 
-    <!-- ====== DASHBOARD ====== -->
-    <section id="dashboard" class="screen" aria-labelledby="dash-heading">
-      <div class="container dash-wrap">
-        <h2 id="dash-heading">History</h2>
-        <p class="dash-sub">Every decision you log makes your profile sharper.</p>
+    <!-- ====== HISTORY ====== -->
+    <section id="history" class="screen" aria-labelledby="history-heading">
+      <div class="container history-wrap">
 
-        <div class="dash-stats">
-          <div class="stat"><span class="stat-num" id="dash-total">0</span><span class="stat-label">Decisions</span></div>
-          <div class="stat"><span class="stat-num" id="dash-calibrated">0</span><span class="stat-label">Tracked</span></div>
-          <div class="stat"><span class="stat-num" id="dash-brier">—</span><span class="stat-label">Accuracy</span></div>
-          <div class="stat"><span class="stat-num" id="dash-accuracy">—</span><span class="stat-label">Hit rate</span></div>
+        <button type="button" class="back-link" id="history-back">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back
+        </button>
+
+        <h2 id="history-heading">Your decisions</h2>
+        <p class="history-sub" id="history-sub"></p>
+
+        <div class="history-stats" id="history-stats"></div>
+
+        <div id="history-list" class="history-list"><p class="empty">Nothing yet. Ask your first question.</p></div>
+
+        <div id="bias-profile-section" class="bias-profile-section" hidden>
+          <h3>Your patterns</h3>
+          <div id="dash-bias-profile" class="bias-profile-content"></div>
         </div>
 
-        <div class="analysis-section" aria-labelledby="dash-bias-heading">
-          <div class="section-label">
-            <span class="section-num">~</span>
-            <h3 id="dash-bias-heading">Your blind spots</h3>
-          </div>
-          <div id="dash-bias-profile" class="bias-profile-content"><p class="empty">Not enough data yet.</p></div>
-        </div>
-
-        <div id="expiring-section" class="analysis-section" hidden aria-labelledby="expiring-heading">
-          <div class="section-label">
-            <span class="section-num accent">!</span>
-            <h3 id="expiring-heading">Deadlines approaching</h3>
-          </div>
-          <div id="expiring-list" class="history-list"></div>
-        </div>
-
-        <div class="analysis-section" aria-labelledby="history-heading">
-          <div class="section-label">
-            <span class="section-num">*</span>
-            <h3 id="history-heading">All decisions</h3>
-          </div>
-          <div id="history-list" class="history-list"><p class="empty">Nothing yet.</p></div>
-        </div>
-
-        <div class="results-actions">
-          <button type="button" class="btn btn-ghost" id="dash-back-btn">Back</button>
-          <button type="button" class="btn btn-danger" id="clear-data-btn">Clear data</button>
-        </div>
+        <button type="button" class="text-btn danger" id="clear-data-btn">Clear all data</button>
       </div>
     </section>
 
@@ -512,34 +284,12 @@
             <label for="outcome-actual-payoff">Actual value <span class="muted">(optional)</span></label>
             <input id="outcome-actual-payoff" class="input" type="number" step="1" placeholder="e.g. 75000">
           </div>
-          <button type="button" class="btn btn-primary" id="log-outcome-btn" style="width:100%">Log outcome</button>
+          <button type="button" class="btn-primary-full" id="log-outcome-btn">Log outcome</button>
         </div>
       </div>
     </dialog>
 
-    <!-- How it works -->
-    <dialog id="how-it-works-modal" class="modal" aria-labelledby="how-heading">
-      <div class="modal-inner">
-        <div class="modal-head">
-          <h2 id="how-heading">How it works</h2>
-          <button type="button" class="modal-close" id="modal-close-btn" aria-label="Close">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="how-item"><span class="how-num">01</span><div><h4>You describe your situation</h4><p>Not a form. Just write what's going on — the way you'd tell a friend.</p></div></div>
-          <div class="how-item"><span class="how-num">02</span><div><h4>7 frameworks run on your problem</h4><p>Not a chatbot opinion — structured analysis. Expected value math, base rate reality checks, sunk cost detection, Bayesian updating, survivorship bias filtering, Kelly Criterion sizing, and sensitivity testing.</p></div></div>
-          <div class="how-item"><span class="how-num">03</span><div><h4>Real numbers, cited sources</h4><p>Every figure comes with a source — government statistics, industry data, published research. When we're uncertain, we say so.</p></div></div>
-          <div class="how-item"><span class="how-num">04</span><div><h4>One clear recommendation</h4><p>Not "it depends." A specific answer with the math behind it, the blind spots you're missing, and exactly how much to commit.</p></div></div>
-          <div class="how-item"><span class="how-num">05</span><div><h4>You track what happens</h4><p>Come back, log the real outcome. Over time, Rational learns your patterns and helps you spot your blind spots.</p></div></div>
-        </div>
-      </div>
-    </dialog>
   </main>
-
-  <footer class="footer" role="contentinfo">
-    <div class="container footer-inner">
-      <p>Rational — 7 frameworks, 1 clear answer.</p>
-    </div>
-  </footer>
 
   <script src="app.js"></script>
 </body>
