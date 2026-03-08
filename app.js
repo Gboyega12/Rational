@@ -122,6 +122,7 @@
     deadline: '',
     options: [],
     biases: {},
+    context: {},
     analysisResults: null,
     currentDecisionId: null,
   };
@@ -166,12 +167,11 @@
   // ================================================================
   const decisionInput = $('#decision-input');
   const step1Next = $('.next-step[data-next="2"]');
-  const aiAnalyzeBtn = $('#ai-analyze-btn');
-
   function validateStep1() {
     const valid = decisionInput.value.trim().length >= 20;
     step1Next.disabled = !valid;
-    aiAnalyzeBtn.disabled = !valid;
+    const aiBtn = $('#ai-analyze-btn');
+    if (aiBtn) aiBtn.disabled = !valid;
   }
 
   decisionInput.addEventListener('input', () => {
@@ -656,12 +656,28 @@
     showStep(1);
     seedOptions();
     state.currentDecisionId = null;
+    state.context = {};
     decisionInput.value = '';
     $('#char-count').textContent = '0 / 3,000';
+    resetFollowupChat();
     decisionInput.focus();
   });
 
-  $('#back-to-landing').addEventListener('click', () => showScreen('landing'));
+  function resetFollowupChat() {
+    const chatEl = $('#followup-chat');
+    if (chatEl) chatEl.hidden = true;
+    const methodPreview = $('#methodology-preview');
+    if (methodPreview) methodPreview.hidden = false;
+    const stepNav = $('[data-wizard-step="1"] .step-nav');
+    if (stepNav) stepNav.hidden = false;
+    const loading = $('#ai-loading');
+    if (loading) loading.hidden = true;
+  }
+
+  $('#back-to-landing').addEventListener('click', () => {
+    resetFollowupChat();
+    showScreen('landing');
+  });
 
   $('#logo-home').addEventListener('click', (e) => {
     e.preventDefault();
@@ -726,71 +742,7 @@
   // ================================================================
   // AI ANALYSIS FLOW
   // ================================================================
-  aiAnalyzeBtn.addEventListener('click', async () => {
-    state.decision = decisionInput.value.trim();
-    state.category = $('#decision-category').value;
-    state.timeHorizon = $('#time-horizon').value;
-    state.deadline = $('#decision-deadline').value;
-
-    // Show loading + start pipeline animation
-    const loading = $('#ai-loading');
-    loading.hidden = false;
-    aiAnalyzeBtn.disabled = true;
-    step1Next.disabled = true;
-
-    // Hide methodology preview during loading
-    const methodPreview = $('#methodology-preview');
-    if (methodPreview) methodPreview.hidden = true;
-
-    // Animate pipeline steps
-    const pipelineSteps = $$('.pipeline-step', $('#loading-pipeline'));
-    pipelineSteps.forEach(s => { s.classList.remove('active', 'done'); });
-    let pipelineIdx = 0;
-    const pipelineInterval = setInterval(() => {
-      if (pipelineIdx > 0 && pipelineIdx <= pipelineSteps.length) {
-        pipelineSteps[pipelineIdx - 1].classList.remove('active');
-        pipelineSteps[pipelineIdx - 1].classList.add('done');
-      }
-      if (pipelineIdx < pipelineSteps.length) {
-        pipelineSteps[pipelineIdx].classList.add('active');
-        pipelineIdx++;
-      } else {
-        clearInterval(pipelineInterval);
-      }
-    }, 2200);
-
-    try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: state.decision,
-          category: state.category,
-          timeHorizon: state.timeHorizon,
-          deadline: state.deadline,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `API error ${res.status}`);
-      }
-
-      const { analysis } = await res.json();
-      clearInterval(pipelineInterval);
-      // Mark all steps done
-      pipelineSteps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
-      renderAIResults(analysis);
-      showScreen('results');
-    } catch (err) {
-      clearInterval(pipelineInterval);
-      console.error('AI analysis failed:', err);
-      loading.hidden = true;
-      if (methodPreview) methodPreview.hidden = false;
-      validateStep1();
-      alert(`Analysis unavailable: ${err.message}\n\nUse "Build manually" to analyze with the local engine instead.`);
-    }
-  });
+  // (AI analyze handler is now in the follow-up conversation section below)
 
   function confidenceBadge(level) {
     if (!level) return '';
@@ -1315,6 +1267,77 @@
       html += `<p>This plays out over <strong>${map[state.timeHorizon] || 'time'}</strong> — you have room to course-correct if early signals don't match.</p>`;
     }
 
+    // Hyper-personalization context insights
+    const ctx = state.context || {};
+    const contextInsights = [];
+
+    if (ctx.runway) {
+      const runwayLabels = { '0': 'virtually no financial runway', '1-3': '1–3 months of runway', '3-6': '3–6 months of buffer', '6-12': '6–12 months of cushion', '12+': 'over 12 months of runway' };
+      const runwayRisk = ctx.runway === '0' || ctx.runway === '1-3';
+      if (runwayRisk) {
+        contextInsights.push(`With <strong>${runwayLabels[ctx.runway] || 'limited runway'}</strong>, prioritize options that preserve cash flow. A high-upside gamble isn't worth it if a bad month means you can't cover basics.`);
+      } else {
+        contextInsights.push(`With <strong>${runwayLabels[ctx.runway]}</strong>, you have breathing room to take a measured risk — but don't confuse a cushion with permission to be reckless.`);
+      }
+    }
+
+    if (ctx.dependents && ctx.dependents !== 'none') {
+      const depLabels = { 'partner': 'a partner', 'family-small': 'a small family', 'family-large': 'a larger family', 'extended': 'extended family' };
+      contextInsights.push(`You're responsible for <strong>${depLabels[ctx.dependents] || 'others'}</strong>. Factor in their stability — a decision that's bold for a solo person may be irresponsible when others depend on the outcome.`);
+    }
+
+    if (ctx.emotionalState && ctx.emotionalState !== 'calm') {
+      const emotionWarnings = {
+        'excited': 'You said you\'re feeling excited and leaning toward something. Excitement narrows focus — make sure you\'re not overlooking downsides because momentum feels good.',
+        'anxious': 'You flagged anxiety around this decision. Anxious minds overweight worst-case scenarios. The numbers above are your anchor — trust the math over the feeling.',
+        'pressured': 'You\'re under external pressure to decide fast. Rushed decisions disproportionately favor the status quo or the loudest voice. If possible, buy yourself even 48 more hours.',
+        'burned-out': 'You said you\'re burned out. Low energy means lower risk tolerance and worse pattern recognition. If this can wait, let it wait. If it can\'t, lean harder on the frameworks above.',
+      };
+      contextInsights.push(emotionWarnings[ctx.emotionalState] || '');
+    }
+
+    if (ctx.riskTolerance) {
+      const riskNotes = {
+        'very-cautious': 'Your natural preference is high certainty. The quarter-Kelly sizing above is especially relevant — it limits downside while keeping you in the game.',
+        'cautious': 'You prefer calculated bets. Focus on the sensitivity section — if the answer holds even when you slide your estimates toward pessimistic, it\'s a go.',
+        'aggressive': 'You lean into risk. That\'s a strength when the EV is positive, but double-check the base rate section — aggressive people tend to overweight their own odds.',
+        'very-aggressive': 'You\'re wired to swing big. That works when the math supports it. But check: are you excited about this because the numbers are good, or because the story is good?',
+      };
+      if (riskNotes[ctx.riskTolerance]) contextInsights.push(riskNotes[ctx.riskTolerance]);
+    }
+
+    if (ctx.cultural && ctx.cultural !== 'none') {
+      const culturalNotes = {
+        'some': 'There are some cultural or family expectations in play. Weigh them, but don\'t let them override what the numbers say unless the social cost of defying them is genuinely high.',
+        'strong': 'Strong cultural or family expectations are shaping your options. This is a real constraint — the "optimal" choice on paper may not be viable if it fractures key relationships.',
+        'dominant': 'Cultural or family pressure is a dominant force here. Be honest about what\'s actually on the table. The best decision is the best <em>feasible</em> decision — and feasibility includes social reality.',
+      };
+      if (culturalNotes[ctx.cultural]) contextInsights.push(culturalNotes[ctx.cultural]);
+    }
+
+    if (ctx.lifeStage) {
+      const stageNotes = {
+        'student': 'As a student, your biggest asset is time and low obligations. This is the highest-risk-tolerance phase of your life — if you\'re ever going to take a shot, now is when.',
+        'early-career': 'Early in your career, you\'re building reputation capital. Weigh whether this decision compounds your skills and network, not just the short-term payoff.',
+        'career-change': 'Pivoting is expensive but often necessary. Your transferable skills are the bridge — make sure the path you choose actually uses them.',
+        'parent': 'As a parent or caregiver, stability isn\'t just a preference — it\'s a responsibility. The right amount of risk is lower than it was before others depended on you.',
+        'pre-retirement': 'At this stage, preservation matters more than growth. Avoid decisions that put a large percentage of your assets at risk for marginal upside.',
+      };
+      if (stageNotes[ctx.lifeStage]) contextInsights.push(stageNotes[ctx.lifeStage]);
+    }
+
+    if (ctx.location) {
+      contextInsights.push(`Based in <strong>${escapeHtml(ctx.location)}</strong> — local cost of living, market conditions, and opportunity access all factor into whether the numbers above translate to your reality.`);
+    }
+
+    if (contextInsights.length > 0) {
+      html += '<div class="context-insights"><h4>Personalized to your situation</h4>';
+      contextInsights.forEach(insight => {
+        if (insight) html += `<p>${insight}</p>`;
+      });
+      html += '</div>';
+    }
+
     html += '</div>';
     container.innerHTML = html;
   }
@@ -1577,6 +1600,543 @@
   $('#how-it-works-btn').addEventListener('click', () => howModal.showModal());
   $('#modal-close-btn').addEventListener('click', () => howModal.close());
   howModal.addEventListener('click', (e) => { if (e.target === howModal) howModal.close(); });
+
+  // ================================================================
+  // CONVERSATIONAL FOLLOW-UP — Hyper-personalization
+  // ================================================================
+  const FOLLOWUP_QUESTIONS = [
+    {
+      id: 'location',
+      question: "Where are you based? Geography shapes cost of living, opportunity access, and what's realistic.",
+      type: 'text',
+      placeholder: 'e.g. Lagos, Nigeria / London, UK / Austin, TX',
+      triggers: () => true, // always relevant
+    },
+    {
+      id: 'life_stage',
+      question: "What stage of life are you in right now?",
+      type: 'options',
+      options: [
+        { label: 'Student', value: 'student' },
+        { label: 'Early career', value: 'early-career' },
+        { label: 'Mid-career', value: 'mid-career' },
+        { label: 'Career pivot', value: 'career-change' },
+        { label: 'Parent / caregiver', value: 'parent' },
+        { label: 'Pre-retirement', value: 'pre-retirement' },
+      ],
+      triggers: () => true,
+    },
+    {
+      id: 'dependents',
+      question: "Who depends on you financially? This changes how much risk is responsible.",
+      type: 'options',
+      options: [
+        { label: 'Just me', value: 'none' },
+        { label: 'Partner', value: 'partner' },
+        { label: 'Small family (1-2)', value: 'family-small' },
+        { label: 'Larger family (3+)', value: 'family-large' },
+        { label: 'Extended family', value: 'extended' },
+      ],
+      triggers: () => true,
+    },
+    {
+      id: 'runway',
+      question: "How many months could you sustain yourself without income?",
+      type: 'options',
+      options: [
+        { label: 'Less than 1 month', value: '0' },
+        { label: '1–3 months', value: '1-3' },
+        { label: '3–6 months', value: '3-6' },
+        { label: '6–12 months', value: '6-12' },
+        { label: '12+ months', value: '12+' },
+      ],
+      triggers: (desc, cat) => ['career', 'business', 'finance', 'education'].includes(cat) || /startup|job|salary|money|quit|invest|business|funding|freelance|income|savings|debt/i.test(desc),
+    },
+    {
+      id: 'emotional_state',
+      question: "What's your headspace right now? Stress and excitement both warp judgment.",
+      type: 'options',
+      options: [
+        { label: 'Calm & clear', value: 'calm' },
+        { label: 'Excited — momentum pulling me', value: 'excited' },
+        { label: 'Anxious about the wrong call', value: 'anxious' },
+        { label: 'Pressured to decide fast', value: 'pressured' },
+        { label: 'Burned out', value: 'burned-out' },
+      ],
+      triggers: () => true,
+    },
+    {
+      id: 'risk_tolerance',
+      question: "How do you actually handle uncertainty — not how you think you should, but how you do?",
+      type: 'options',
+      options: [
+        { label: 'Very cautious — need certainty', value: 'very-cautious' },
+        { label: 'Cautious — calculated bets', value: 'cautious' },
+        { label: 'Moderate — measured risks', value: 'moderate' },
+        { label: 'Aggressive — lean into uncertainty', value: 'aggressive' },
+        { label: 'Very aggressive — swing big', value: 'very-aggressive' },
+      ],
+      triggers: () => true,
+    },
+    {
+      id: 'cultural',
+      question: "Are cultural or family expectations shaping your options?",
+      type: 'options',
+      options: [
+        { label: 'No — independent decision', value: 'none' },
+        { label: 'Some, but I can push back', value: 'some' },
+        { label: 'Strong expectations', value: 'strong' },
+        { label: 'Dominant — defying has consequences', value: 'dominant' },
+      ],
+      triggers: (desc) => /family|parents|mother|father|culture|tradition|expect|pressure|community|marry|marriage|partner/i.test(desc),
+    },
+    {
+      id: 'health_energy',
+      question: "How's your physical energy and health right now?",
+      type: 'options',
+      options: [
+        { label: 'Great — high energy', value: 'high' },
+        { label: 'Average — managing', value: 'average' },
+        { label: 'Low — health or fatigue issues', value: 'low' },
+        { label: 'Dealing with a health condition', value: 'condition' },
+      ],
+      triggers: (desc, cat) => cat === 'health' || /health|energy|tired|burnout|surgery|therapy|medication|fitness|sleep|exhausted|stress/i.test(desc),
+    },
+    {
+      id: 'support_network',
+      question: "Do you have people you can lean on — mentors, friends, a network?",
+      type: 'options',
+      options: [
+        { label: 'Strong support system', value: 'strong' },
+        { label: 'A few key people', value: 'moderate' },
+        { label: 'Mostly on my own', value: 'weak' },
+        { label: 'Isolated — no support', value: 'none' },
+      ],
+      triggers: (desc, cat) => ['career', 'business', 'education'].includes(cat) || /startup|relocat|move|alone|partner|mentor|network|lonely|isola/i.test(desc),
+    },
+    {
+      id: 'time_pressure',
+      question: "Is there a hard deadline forcing this decision, or can you take your time?",
+      type: 'options',
+      options: [
+        { label: 'No rush — I have time', value: 'none' },
+        { label: 'Soft deadline (weeks)', value: 'soft' },
+        { label: 'Hard deadline (days)', value: 'hard' },
+        { label: 'Urgent — need to decide now', value: 'urgent' },
+      ],
+      triggers: (desc) => !state.deadline && /deadline|urgent|soon|quickly|fast|running out|expir|offer expires|asap/i.test(desc),
+    },
+    {
+      id: 'past_attempts',
+      question: "Have you tried something similar before? What happened?",
+      type: 'text',
+      placeholder: "e.g. I tried freelancing in 2022 but couldn't find clients",
+      triggers: (desc) => /again|before|tried|attempt|retry|failed|last time|previous/i.test(desc),
+    },
+  ];
+
+  let followupQueue = [];
+  let followupIndex = 0;
+  let followupAnswers = {};
+
+  function buildFollowupQueue(description, category) {
+    // Select questions relevant to this person's situation
+    const relevant = FOLLOWUP_QUESTIONS.filter(q => q.triggers(description, category));
+    // Cap at 6 questions to keep it conversational, not interrogative
+    return relevant.slice(0, 6);
+  }
+
+  function startFollowupChat() {
+    const chatEl = $('#followup-chat');
+    const messagesEl = $('#followup-messages');
+    const inputArea = $('#followup-input-area');
+    const doneArea = $('#followup-done-area');
+
+    chatEl.hidden = false;
+    messagesEl.innerHTML = '';
+    inputArea.hidden = true;
+    doneArea.hidden = true;
+    followupAnswers = {};
+    followupIndex = 0;
+    followupQueue = buildFollowupQueue(state.decision, state.category);
+
+    // Short delay then show first question
+    setTimeout(() => showNextFollowupQuestion(), 600);
+  }
+
+  function showNextFollowupQuestion() {
+    const messagesEl = $('#followup-messages');
+    const inputArea = $('#followup-input-area');
+    const optionsEl = $('#followup-options');
+    const textWrap = $('#followup-text-wrap');
+    const doneArea = $('#followup-done-area');
+
+    if (followupIndex >= followupQueue.length) {
+      // All questions asked — show done
+      inputArea.hidden = true;
+      doneArea.hidden = false;
+      doneArea.classList.add('followup-fade-in');
+      // Collect into state.context with camelCase keys
+      state.context = {
+        location: followupAnswers.location || '',
+        lifeStage: followupAnswers.life_stage || '',
+        dependents: followupAnswers.dependents || '',
+        runway: followupAnswers.runway || '',
+        emotionalState: followupAnswers.emotional_state || '',
+        riskTolerance: followupAnswers.risk_tolerance || '',
+        cultural: followupAnswers.cultural || '',
+        healthEnergy: followupAnswers.health_energy || '',
+        supportNetwork: followupAnswers.support_network || '',
+        timePressure: followupAnswers.time_pressure || '',
+        pastAttempts: followupAnswers.past_attempts || '',
+      };
+      return;
+    }
+
+    const q = followupQueue[followupIndex];
+
+    // Add question bubble with typing indicator first
+    const typingEl = document.createElement('div');
+    typingEl.className = 'followup-msg followup-bot followup-typing';
+    typingEl.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+    messagesEl.appendChild(typingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    setTimeout(() => {
+      // Replace typing with actual question
+      typingEl.classList.remove('followup-typing');
+      typingEl.innerHTML = `<p>${escapeHtml(q.question)}</p>`;
+      typingEl.classList.add('followup-fade-in');
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      // Show input area
+      inputArea.hidden = false;
+
+      if (q.type === 'options') {
+        optionsEl.innerHTML = '';
+        textWrap.hidden = true;
+        q.options.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'followup-option-btn';
+          btn.textContent = opt.label;
+          btn.addEventListener('click', () => handleFollowupAnswer(q.id, opt.value, opt.label));
+          optionsEl.appendChild(btn);
+        });
+        // Add skip
+        const skipBtn = document.createElement('button');
+        skipBtn.type = 'button';
+        skipBtn.className = 'followup-option-btn followup-skip';
+        skipBtn.textContent = 'Skip';
+        skipBtn.addEventListener('click', () => handleFollowupAnswer(q.id, '', 'Skipped'));
+        optionsEl.appendChild(skipBtn);
+        optionsEl.hidden = false;
+      } else {
+        optionsEl.hidden = true;
+        textWrap.hidden = false;
+        const input = $('#followup-text');
+        input.placeholder = q.placeholder || 'Type your answer...';
+        input.value = '';
+        input.focus();
+        // Handle enter
+        input.onkeydown = (e) => {
+          if (e.key === 'Enter' && input.value.trim()) {
+            handleFollowupAnswer(q.id, input.value.trim(), input.value.trim());
+          }
+        };
+        $('#followup-send').onclick = () => {
+          if (input.value.trim()) {
+            handleFollowupAnswer(q.id, input.value.trim(), input.value.trim());
+          }
+        };
+      }
+    }, 800);
+  }
+
+  function handleFollowupAnswer(questionId, value, displayText) {
+    const messagesEl = $('#followup-messages');
+    const inputArea = $('#followup-input-area');
+
+    // Store answer
+    followupAnswers[questionId] = value;
+
+    // Add user answer bubble
+    const userMsg = document.createElement('div');
+    userMsg.className = 'followup-msg followup-user followup-fade-in';
+    userMsg.innerHTML = `<p>${escapeHtml(displayText)}</p>`;
+    messagesEl.appendChild(userMsg);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // Hide input while transitioning
+    inputArea.hidden = true;
+
+    followupIndex++;
+    setTimeout(() => showNextFollowupQuestion(), 400);
+  }
+
+  // Wire "Run full analysis" to start conversation follow-up
+  $('#ai-analyze-btn').addEventListener('click', () => {
+    state.decision = decisionInput.value.trim();
+    state.category = $('#decision-category').value;
+    state.timeHorizon = $('#time-horizon').value;
+    state.deadline = $('#decision-deadline').value;
+
+    // Hide form and show conversation
+    const methodPreview = $('#methodology-preview');
+    if (methodPreview) methodPreview.hidden = true;
+    $('#ai-analyze-btn').closest('.step-nav').hidden = true;
+
+    startFollowupChat();
+  });
+
+  // Handle "Run analysis" from the follow-up done area
+  $('#followup-run-btn').addEventListener('click', async () => {
+    const chatEl = $('#followup-chat');
+    const loading = $('#ai-loading');
+
+    chatEl.hidden = true;
+    loading.hidden = false;
+
+    // Animate pipeline steps
+    const pipelineSteps = $$('.pipeline-step', $('#loading-pipeline'));
+    pipelineSteps.forEach(s => { s.classList.remove('active', 'done'); });
+    let pipelineIdx = 0;
+    const pipelineInterval = setInterval(() => {
+      if (pipelineIdx > 0 && pipelineIdx <= pipelineSteps.length) {
+        pipelineSteps[pipelineIdx - 1].classList.remove('active');
+        pipelineSteps[pipelineIdx - 1].classList.add('done');
+      }
+      if (pipelineIdx < pipelineSteps.length) {
+        pipelineSteps[pipelineIdx].classList.add('active');
+        pipelineIdx++;
+      } else {
+        clearInterval(pipelineInterval);
+      }
+    }, 2200);
+
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: state.decision,
+          category: state.category,
+          timeHorizon: state.timeHorizon,
+          deadline: state.deadline,
+          personalContext: state.context,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `API error ${res.status}`);
+      }
+
+      const { analysis } = await res.json();
+      clearInterval(pipelineInterval);
+      pipelineSteps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
+      renderAIResults(analysis);
+      showScreen('results');
+    } catch (err) {
+      clearInterval(pipelineInterval);
+      console.error('AI analysis failed:', err);
+      loading.hidden = true;
+
+      // Restore form controls
+      const methodPreview = $('#methodology-preview');
+      if (methodPreview) methodPreview.hidden = false;
+      const stepNav = $('[data-wizard-step="1"] .step-nav');
+      if (stepNav) stepNav.hidden = false;
+      chatEl.hidden = true;
+      validateStep1();
+      alert(`Analysis unavailable: ${err.message}\n\nUse "Build manually" to analyze with the local engine instead.`);
+    }
+  });
+
+  // ================================================================
+  // VOICE INPUT
+  // ================================================================
+  const voiceBtn = $('#voice-btn');
+  let recognition = null;
+  let voiceStream = null;
+  let voiceAnimFrame = null;
+
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRec();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    let finalTranscript = '';
+
+    recognition.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          finalTranscript += e.results[i][0].transcript + ' ';
+        } else {
+          interim += e.results[i][0].transcript;
+        }
+      }
+      decisionInput.value = finalTranscript + interim;
+      const len = decisionInput.value.length;
+      $('#char-count').textContent = `${len.toLocaleString()} / 3,000`;
+      validateStep1();
+    };
+
+    recognition.onerror = () => stopVoice();
+    recognition.onend = () => stopVoice();
+
+    voiceBtn.addEventListener('click', () => {
+      if (voiceBtn.classList.contains('recording')) {
+        stopVoice();
+      } else {
+        startVoice();
+      }
+    });
+
+    function startVoice() {
+      finalTranscript = decisionInput.value;
+      voiceBtn.classList.add('recording');
+      recognition.start();
+      // Start waveform visualization
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        voiceStream = stream;
+        const ctx = new AudioContext();
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+        source.connect(analyser);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        const canvas = $('#voice-waveform');
+        const cCtx = canvas.getContext('2d');
+        function drawWave() {
+          voiceAnimFrame = requestAnimationFrame(drawWave);
+          analyser.getByteFrequencyData(data);
+          cCtx.clearRect(0, 0, 80, 24);
+          const bars = 16;
+          const w = 3;
+          const gap = 2;
+          for (let i = 0; i < bars; i++) {
+            const v = data[i] / 255;
+            const h = Math.max(2, v * 22);
+            const x = i * (w + gap);
+            cCtx.fillStyle = v > 0.5 ? '#D71921' : 'rgba(255,255,255,0.3)';
+            cCtx.fillRect(x, 12 - h / 2, w, h);
+          }
+        }
+        drawWave();
+      }).catch(() => {});
+    }
+
+    function stopVoice() {
+      voiceBtn.classList.remove('recording');
+      try { recognition.stop(); } catch {}
+      if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
+      if (voiceAnimFrame) { cancelAnimationFrame(voiceAnimFrame); voiceAnimFrame = null; }
+      const canvas = $('#voice-waveform');
+      const cCtx = canvas.getContext('2d');
+      cCtx.clearRect(0, 0, 80, 24);
+    }
+  } else {
+    voiceBtn.style.display = 'none';
+  }
+
+  // ================================================================
+  // SCROLL REVEAL — sections animate in on scroll
+  // ================================================================
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('revealed');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  function observeRevealSections() {
+    $$('.reveal-section').forEach(el => {
+      el.classList.remove('revealed');
+      revealObserver.observe(el);
+    });
+  }
+
+  // ================================================================
+  // VERDICT PARTICLES
+  // ================================================================
+  function spawnParticles() {
+    const container = $('#verdict-particles');
+    if (!container) return;
+    container.innerHTML = '';
+    for (let i = 0; i < 24; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const angle = (Math.PI * 2 * i) / 24 + (Math.random() - 0.5) * 0.5;
+      const dist = 60 + Math.random() * 80;
+      p.style.left = '50%';
+      p.style.top = '50%';
+      p.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
+      p.style.setProperty('--ty', `${Math.sin(angle) * dist}px`);
+      p.style.animationDelay = `${Math.random() * 0.5}s`;
+      p.style.width = p.style.height = `${2 + Math.random() * 3}px`;
+      if (Math.random() > 0.6) p.style.background = '#fff';
+      container.appendChild(p);
+    }
+  }
+
+  // ================================================================
+  // BUTTON RIPPLE
+  // ================================================================
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn');
+    if (!btn || btn.disabled) return;
+    const rect = btn.getBoundingClientRect();
+    const ripple = document.createElement('span');
+    ripple.className = 'btn-ripple';
+    const size = Math.max(rect.width, rect.height) * 2;
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+    ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+    btn.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove());
+  });
+
+  // ================================================================
+  // SHARE
+  // ================================================================
+  $('#share-btn').addEventListener('click', async () => {
+    const verdict = $('.verdict-heading')?.textContent || 'My Rational Analysis';
+    const sub = $('#verdict-sub')?.textContent || '';
+    const shareText = `${verdict}\n${sub}\n\nAnalyzed with Rational — 7 frameworks, 1 clear answer.`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Rational Analysis', text: shareText, url: window.location.origin });
+      } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareText + '\n' + window.location.origin);
+        const toast = $('#share-toast');
+        toast.hidden = false;
+        requestAnimationFrame(() => toast.classList.add('visible'));
+        setTimeout(() => {
+          toast.classList.remove('visible');
+          setTimeout(() => { toast.hidden = true; }, 400);
+        }, 2500);
+      } catch {}
+    }
+  });
+
+  // Hook into screen transitions to trigger animations
+  const _origShowScreen = showScreen;
+  showScreen = function(id) {
+    _origShowScreen(id);
+    if (id === 'results') {
+      spawnParticles();
+      setTimeout(observeRevealSections, 100);
+    }
+  };
 
   // PWA
   if ('serviceWorker' in navigator) {
