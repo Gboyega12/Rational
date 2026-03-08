@@ -732,11 +732,32 @@
     state.timeHorizon = $('#time-horizon').value;
     state.deadline = $('#decision-deadline').value;
 
-    // Show loading
+    // Show loading + start pipeline animation
     const loading = $('#ai-loading');
     loading.hidden = false;
     aiAnalyzeBtn.disabled = true;
     step1Next.disabled = true;
+
+    // Hide methodology preview during loading
+    const methodPreview = $('#methodology-preview');
+    if (methodPreview) methodPreview.hidden = true;
+
+    // Animate pipeline steps
+    const pipelineSteps = $$('.pipeline-step', $('#loading-pipeline'));
+    pipelineSteps.forEach(s => { s.classList.remove('active', 'done'); });
+    let pipelineIdx = 0;
+    const pipelineInterval = setInterval(() => {
+      if (pipelineIdx > 0 && pipelineIdx <= pipelineSteps.length) {
+        pipelineSteps[pipelineIdx - 1].classList.remove('active');
+        pipelineSteps[pipelineIdx - 1].classList.add('done');
+      }
+      if (pipelineIdx < pipelineSteps.length) {
+        pipelineSteps[pipelineIdx].classList.add('active');
+        pipelineIdx++;
+      } else {
+        clearInterval(pipelineInterval);
+      }
+    }, 2200);
 
     try {
       const res = await fetch('/api/analyze', {
@@ -756,14 +777,18 @@
       }
 
       const { analysis } = await res.json();
+      clearInterval(pipelineInterval);
+      // Mark all steps done
+      pipelineSteps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
       renderAIResults(analysis);
       showScreen('results');
     } catch (err) {
+      clearInterval(pipelineInterval);
       console.error('AI analysis failed:', err);
       loading.hidden = true;
+      if (methodPreview) methodPreview.hidden = false;
       validateStep1();
-      // Show error with fallback
-      alert(`AI analysis unavailable: ${err.message}\n\nUse "Refine manually" to analyze with the local engine instead.`);
+      alert(`Analysis unavailable: ${err.message}\n\nUse "Build manually" to analyze with the local engine instead.`);
     }
   });
 
@@ -774,8 +799,10 @@
   }
 
   function renderAIResults(ai) {
-    // Hide loading
+    // Hide loading, restore methodology preview
     $('#ai-loading').hidden = true;
+    const mp = $('#methodology-preview');
+    if (mp) mp.hidden = false;
     validateStep1();
 
     // Verdict hero
