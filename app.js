@@ -304,10 +304,10 @@
           <span class="prob-total invalid" aria-live="polite">0%</span>
         </div>
         <div class="outcome-label-header" aria-hidden="true">
-          <span>Outcome</span><span>Prob. (%)</span><span>Payoff ($)</span><span></span>
+          <span>What could happen</span><span>Chance (%)</span><span>Value ($)</span><span></span>
         </div>
         <div class="outcome-rows"></div>
-        <button type="button" class="btn btn-outline btn-sm add-outcome-btn" aria-label="Add outcome to ${escapeHtml(opt.name)}">+ Add Outcome</button>
+        <button type="button" class="btn btn-soft btn-sm add-outcome-btn" aria-label="Add outcome to ${escapeHtml(opt.name)}">+ Add another outcome</button>
       `;
       outcomesContainer.appendChild(group);
 
@@ -325,9 +325,9 @@
     const row = document.createElement('div');
     row.className = 'outcome-row';
     row.innerHTML = `
-      <input type="text" class="input outcome-desc" placeholder="e.g. Startup succeeds" aria-label="Outcome description" maxlength="100">
-      <input type="number" class="input outcome-prob" placeholder="50" min="0" max="100" step="1" aria-label="Probability (%)">
-      <input type="number" class="input outcome-payoff" placeholder="250000" step="1" aria-label="Payoff value ($)">
+      <input type="text" class="input outcome-desc" placeholder="e.g. It works out great" aria-label="What could happen" maxlength="100">
+      <input type="number" class="input outcome-prob" placeholder="50" min="0" max="100" step="1" aria-label="Chance (%)">
+      <input type="number" class="input outcome-payoff" placeholder="50000" step="1" aria-label="Value ($)">
       <button type="button" class="option-remove" aria-label="Remove outcome">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
@@ -409,34 +409,26 @@
   function detectModels() {
     const models = [];
 
-    // EV always applies
-    models.push({ name: 'Expected Value', active: true });
+    models.push({ name: 'Value comparison', active: true });
 
-    // Base rate — if provided or if category has known base rates
     const hasBaseRate = !!$('#base-rate-input').value;
-    models.push({ name: 'Base Rate', active: hasBaseRate });
+    models.push({ name: 'Reality check', active: hasBaseRate });
 
-    // Sunk cost — if user indicates investment
     const hasSunk = sunkCostInput.value === 'moderate' || sunkCostInput.value === 'heavy';
-    models.push({ name: 'Sunk Cost', active: hasSunk });
+    models.push({ name: 'Past investment trap', active: hasSunk });
 
-    // Bayes — activated if base rate provided
-    models.push({ name: 'Bayesian Update', active: hasBaseRate });
+    models.push({ name: 'Odds adjustment', active: hasBaseRate });
 
-    // Survivorship — if user indicates
     const hasSurv = $('#survivorship-input').value === 'yes';
-    models.push({ name: 'Survivorship Bias', active: hasSurv });
+    models.push({ name: 'Success story filter', active: hasSurv });
 
-    // Kelly — if bankroll provided
     const hasKelly = !!$('#bankroll-input').value;
-    models.push({ name: 'Kelly Criterion', active: hasKelly });
+    models.push({ name: 'Smart sizing', active: hasKelly });
 
-    // Sensitivity always runs
-    models.push({ name: 'Sensitivity Analysis', active: true });
+    models.push({ name: 'What-if testing', active: true });
 
-    // Loss aversion — auto-detected from outcomes
     const hasNeg = Object.values(state.outcomes).some(outs => outs.some(o => o.payoff < 0));
-    if (hasNeg) models.push({ name: 'Loss Aversion', active: true });
+    if (hasNeg) models.push({ name: 'Fear of loss check', active: true });
 
     return models;
   }
@@ -588,22 +580,22 @@
       warnings.push({
         type: isBestEV ? 'ok' : 'warn',
         text: isBestEV
-          ? `You've invested heavily in "${optName}" and it has the best EV. Make sure you'd still choose it starting fresh.`
-          : `You've invested heavily in "${optName}" but it does NOT have the best EV. Classic sunk cost trap. Would you choose this starting from scratch?`,
+          ? `You've put a lot into "${optName}" and it also happens to be the best choice by the numbers. That's good — but ask yourself: if you were starting from zero today, would you still pick it?`
+          : `You've put a lot into "${optName}" but the numbers say it's not your best option. This is really common — we tend to stick with things just because we've already invested in them. Try to forget what you've already spent and ask: which option gives you the most going forward?`,
       });
     } else if (state.biases.sunkCost === 'moderate') {
       Store.addBiasTrigger('sunkCost');
-      warnings.push({ type: 'warn', text: 'Moderate prior investment detected. Don\'t let past costs anchor you — focus on future value.' });
+      warnings.push({ type: 'warn', text: 'You mentioned some prior investment in one option. Keep an eye on that — sometimes we stick with something just because we already started it, not because it\'s the best path forward.' });
     } else {
-      warnings.push({ type: 'ok', text: 'No significant sunk cost detected.' });
+      warnings.push({ type: 'ok', text: 'No attachment to past investments. You can evaluate each option purely on its future value.' });
     }
 
     // Survivorship
     if (state.biases.survivorship === 'yes') {
       Store.addBiasTrigger('survivorship');
-      warnings.push({ type: 'warn', text: 'Survivorship bias detected. You\'re reasoning from a success story — but you\'re not seeing the thousands who failed. What\'s the denominator?' });
+      warnings.push({ type: 'warn', text: 'You mentioned being influenced by a specific success story. Remember: for every person who made it, there are usually hundreds who tried the same thing and didn\'t. The success stories get all the attention — the failures stay invisible. How many people actually tried this, and what percentage succeeded?' });
     } else {
-      warnings.push({ type: 'ok', text: 'Reasoning from broad data, not individual stories.' });
+      warnings.push({ type: 'ok', text: 'You\'re looking at the broad picture, not just individual success stories. That\'s a strong starting point.' });
     }
 
     // Base rate
@@ -614,11 +606,11 @@
 
       if (bestSuccessProb > br * 2) {
         Store.addBiasTrigger('overconfidence');
-        warnings.push({ type: 'warn', text: `Your success estimate (${Math.round(bestSuccessProb)}%) for "${bestOption.name}" is ${(bestSuccessProb / br).toFixed(1)}x the base rate (${br}%). Significant overconfidence risk.` });
+        warnings.push({ type: 'warn', text: `You estimated a ${Math.round(bestSuccessProb)}% chance of a good outcome for "${bestOption.name}" — but the typical success rate for this kind of thing is only ${br}%. That's a ${(bestSuccessProb / br).toFixed(1)}x gap. You might be right, but most people overestimate their chances. What makes your situation genuinely different?` });
       } else if (bestSuccessProb > br) {
-        warnings.push({ type: 'warn', text: `Success estimate (${Math.round(bestSuccessProb)}%) above base rate (${br}%). Could be justified if you have a real edge.` });
+        warnings.push({ type: 'warn', text: `Your estimate (${Math.round(bestSuccessProb)}%) is a bit higher than what usually happens (${br}%). That could be fine if you have a real advantage — just make sure you're not being overly optimistic.` });
       } else {
-        warnings.push({ type: 'ok', text: `Estimate aligns with base rate (${br}%). Realistic assessment.` });
+        warnings.push({ type: 'ok', text: `Your estimate lines up with the real-world success rate (${br}%). That suggests you're being realistic about the odds.` });
       }
     }
 
@@ -630,7 +622,7 @@
     if (hasRiskierBest && safeOption && safeOption.index !== bestEV.index) {
       Store.addBiasTrigger('lossAversion');
       const evGap = bestEV.ev - safeOption.ev;
-      warnings.push({ type: 'warn', text: `"${bestEV.name}" has the best EV but includes downside risk, while "${safeOption.name}" feels safer. EV gap: ${formatNumber(evGap)}. Loss aversion may be distorting your judgment.` });
+      warnings.push({ type: 'warn', text: `"${bestEV.name}" is the better choice by the numbers, but it comes with some risk of loss. "${safeOption.name}" feels safer because nothing bad can happen. The difference in value is ${formatNumber(evGap)}. Humans naturally feel losses about twice as strongly as gains — so make sure you're not avoiding the better option just because the downside feels scary.` });
     }
 
     return warnings;
@@ -683,7 +675,7 @@
 
     // Initial state
     resultBox.className = 'sensitivity-result sens-stable';
-    resultBox.innerHTML = '<strong>Baseline:</strong> Move the sliders above to test how changes in probability affect the recommendation.';
+    resultBox.innerHTML = '<strong>Try it:</strong> Move the sliders above to change the odds and see if the best option changes. If it stays the same even when you shift things around, you can feel confident in this choice.';
   }
 
   function recalcSensitivity(originalEvs, originalBestIdx, resultBox) {
@@ -705,11 +697,11 @@
       const newBest = newEvs.find(e => e.index === newBestIdx);
       const oldBest = newEvs.find(e => e.index === originalBestIdx);
       resultBox.className = 'sensitivity-result sens-changed';
-      resultBox.innerHTML = `<strong>Recommendation flipped!</strong> With these probabilities, "${escapeHtml(newBest.name)}" (EV: ${formatNumber(newBest.ev)}) now beats "${escapeHtml(oldBest.name)}" (EV: ${formatNumber(oldBest.ev)}). Your original conclusion is sensitive to these probability changes.`;
+      resultBox.innerHTML = `<strong>The answer changed!</strong> With these odds, "${escapeHtml(newBest.name)}" (${formatNumber(newBest.ev)}) now beats "${escapeHtml(oldBest.name)}" (${formatNumber(oldBest.ev)}). This means your conclusion depends heavily on getting these probabilities right. Tread carefully.`;
     } else {
       const evSummary = newEvs.map(e => `${letterForIndex(e.index)}: ${formatNumber(e.ev)}`).join(' · ');
       resultBox.className = 'sensitivity-result sens-stable';
-      resultBox.innerHTML = `<strong>Recommendation holds.</strong> ${evSummary}`;
+      resultBox.innerHTML = `<strong>Still the same answer.</strong> Even with changed odds, the best option doesn't change. ${evSummary}`;
     }
   }
 
@@ -757,10 +749,10 @@
     const maxCount = Math.max(...Object.values(profile), 1);
 
     const biasLabels = {
-      sunkCost: 'Sunk Cost',
-      survivorship: 'Survivorship Bias',
-      overconfidence: 'Overconfidence',
-      lossAversion: 'Loss Aversion',
+      sunkCost: 'Holding on to past investments',
+      survivorship: 'Inspired by success stories',
+      overconfidence: 'Overestimating your odds',
+      lossAversion: 'Avoiding risk even when it pays off',
     };
 
     const biasClasses = {
@@ -788,8 +780,8 @@
     // Add insight text
     const topBias = sorted[0];
     if (topBias[1] >= 3) {
-      content.innerHTML += `<p style="font-size:var(--text-sm); color:var(--color-warning); margin-top:var(--space-4);">
-        Pattern: <strong>${biasLabels[topBias[0]]}</strong> has been triggered ${topBias[1]} times. This is your most frequent blind spot. Pay extra attention when it appears.
+      content.innerHTML += `<p style="font-size:var(--text-sm); color:var(--color-orange); margin-top:var(--space-4);">
+        Your biggest pattern: <strong>${biasLabels[topBias[0]]}</strong> has come up ${topBias[1]} times. This is your most common thinking trap — watch for it carefully in future decisions.
       </p>`;
     }
   }
@@ -816,20 +808,20 @@
     let bannerClass, recText, recSub;
     if (evs.length === 1 || evGap === 0) {
       bannerClass = 'neutral';
-      recText = 'Options are too close to call on EV alone';
-      recSub = 'Consider qualitative factors and risk tolerance.';
+      recText = 'These options are really close';
+      recSub = 'The numbers don\'t show a clear winner. Consider what matters most to you beyond the math.';
     } else if (warnCount >= 2) {
       bannerClass = 'neutral';
-      recText = `"${bestEV.name}" has the highest EV — proceed with caution`;
-      recSub = `${warnCount} cognitive biases detected. Review warnings below.`;
+      recText = `"${bestEV.name}" looks best — but read the warnings first`;
+      recSub = `We spotted ${warnCount} thinking traps that could be affecting your judgment. Check below before deciding.`;
     } else {
       bannerClass = 'positive';
-      recText = `"${bestEV.name}" is the mathematically strongest option`;
-      recSub = `EV of ${formatNumber(bestEV.ev)} — ${formatNumber(evGap)} more than the next best.`;
+      recText = `Go with "${bestEV.name}"`;
+      recSub = `It's worth ${formatNumber(bestEV.ev)} on average — that's ${formatNumber(evGap)} more than your next best option.`;
     }
 
     banner.className = `recommendation-banner ${bannerClass}`;
-    banner.innerHTML = `<p class="rec-label">Recommendation</p><p class="rec-title">${escapeHtml(recText)}</p><p class="rec-subtitle">${escapeHtml(recSub)}</p>`;
+    banner.innerHTML = `<p class="rec-label">Our recommendation</p><p class="rec-title">${escapeHtml(recText)}</p><p class="rec-subtitle">${escapeHtml(recSub)}</p>`;
 
     // EV bars
     const maxEV = Math.max(...evs.map(e => Math.abs(e.ev)), 1);
@@ -870,15 +862,15 @@
         `${b.name}:\n  Prior P(success) = ${(b.prior * 100).toFixed(1)}%\n  Base rate = ${(b.baseRate * 100).toFixed(1)}%\n  Bayesian adjusted = ${(b.posterior * 100).toFixed(1)}%`
       ).join('\n\n');
     } else {
-      bayesContainer.innerHTML = '<p style="color:var(--color-text-muted);font-size:var(--text-sm);">No base rate provided. Add one in Step 4 to see Bayesian adjustment.</p>';
-      $('#bayes-math').textContent = 'No base rate provided.';
+      bayesContainer.innerHTML = '<p style="color:var(--color-text-muted);font-size:var(--text-sm);">You didn\'t enter a success rate, so we skipped this check. Next time, add a rough percentage in the "honesty check" step to see how your estimate compares to reality.</p>';
+      $('#bayes-math').textContent = 'No success rate provided — skipped.';
     }
 
     // Kelly
     const kellyContainer = $('#kelly-results');
     if (kellyResults) {
       kellyContainer.innerHTML = kellyResults.map(k => {
-        if (k.fullKelly === 0) return `<div class="kelly-item"><span class="kelly-label">${escapeHtml(k.name)}</span><span class="kelly-value" style="color:var(--color-text-muted);">No edge — don't bet</span></div>`;
+        if (k.fullKelly === 0) return `<div class="kelly-item"><span class="kelly-label">${escapeHtml(k.name)}</span><span class="kelly-value" style="color:var(--color-text-muted);">The math says don't commit here</span></div>`;
         return `<div class="kelly-item"><div><span class="kelly-label">${escapeHtml(k.name)}</span><span style="display:block;font-size:var(--text-xs);color:var(--color-text-muted);">Full: ${(k.fullKelly * 100).toFixed(1)}% · Quarter: ${(k.quarterKelly * 100).toFixed(1)}%</span></div><span class="kelly-value">Allocate ${formatNumber(k.amount)}</span></div>`;
       }).join('');
       $('#kelly-math').textContent = kellyResults.map(k => {
@@ -886,8 +878,8 @@
         return `${k.name}:\n  p = ${(k.p * 100).toFixed(1)}%, b = ${k.b.toFixed(2)}, q = ${(k.q * 100).toFixed(1)}%\n  f* = (p*b - q)/b = ${(k.fullKelly * 100).toFixed(1)}%\n  Quarter Kelly = ${(k.quarterKelly * 100).toFixed(1)}%\n  Allocation = ${formatNumber(k.amount)}`;
       }).join('\n\n');
     } else {
-      kellyContainer.innerHTML = '<p style="color:var(--color-text-muted);font-size:var(--text-sm);">No bankroll provided. Add one in Step 4 for optimal sizing.</p>';
-      $('#kelly-math').textContent = 'No bankroll provided.';
+      kellyContainer.innerHTML = '<p style="color:var(--color-text-muted);font-size:var(--text-sm);">You didn\'t enter a budget, so we skipped sizing. Add your total budget in the "honesty check" step to see how much you should commit.</p>';
+      $('#kelly-math').textContent = 'No budget provided — skipped.';
     }
 
     // Bias warnings
