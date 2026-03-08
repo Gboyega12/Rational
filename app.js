@@ -819,12 +819,26 @@
   }
 
   // ================================================================
-  // ANALYSIS RENDERING — AI RESULTS
+  // RENDER AI RESULTS — Flowing narrative, not rigid cards
   // ================================================================
-  function confidenceBadge(level) {
-    if (!level) return '';
-    const labels = { high: 'High confidence', medium: 'Verify numbers', low: 'Rough estimate' };
-    return `<span class="confidence-badge confidence-${level}" title="${labels[level] || level}">${labels[level] || level}</span>`;
+  function formatAIContent(text) {
+    // Convert AI markdown-like content to HTML
+    if (!text) return '';
+    return text
+      // Bold
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      // Bullet points — lines starting with *
+      .replace(/(?:^|\n)\* (.+)/g, (_, b) => `<li>${b}</li>`)
+      // Wrap consecutive <li> in <ul>
+      .replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>')
+      // Paragraphs — double newlines
+      .split(/\n\n+/)
+      .map(p => {
+        p = p.trim();
+        if (!p || p.startsWith('<ul>')) return p;
+        return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+      })
+      .join('\n');
   }
 
   function renderAIResults(ai) {
@@ -832,184 +846,57 @@
     $('#answer-heading').innerHTML = escapeHtml(ai.verdict?.title || 'Analysis complete');
     $('#answer-subtitle').textContent = ai.verdict?.subtitle || '';
 
-    // Section 1: Expected Value
-    if (ai.ev) {
-      const evEl = $('#ev-narrative');
-      let evHtml = confidenceBadge(ai.ev.confidence);
-      if (ai.ev.sections) {
-        ai.ev.sections.forEach(sec => {
-          evHtml += `<div class="ev-option-block"><h4>${escapeHtml(sec.optionName)}</h4>`;
-          if (sec.bullets && sec.bullets.length) {
-            evHtml += '<ul>' + sec.bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('') + '</ul>';
-          }
-          if (sec.evCalculation) {
-            evHtml += `<div class="ev-calc">${escapeHtml(sec.evCalculation)}</div>`;
-          }
-          evHtml += '</div>';
-        });
-      }
-      if (ai.ev.conclusion) {
-        evHtml += `<p><strong>${escapeHtml(ai.ev.conclusion)}</strong></p>`;
-      }
-      evEl.innerHTML = evHtml;
+    // Build the why-section from AI's chosen frameworks
+    const whySection = $('.why-section .why-cards') || $('.why-section');
+    const cardsContainer = document.createElement('div');
 
-      // EV bars
-      const evValues = (ai.ev.sections || []).filter(s => s.evValue != null);
-      if (evValues.length > 0) {
-        const maxEV = Math.max(...evValues.map(s => Math.abs(s.evValue)), 1);
-        const bestIdx = evValues.reduce((bi, s, i) => s.evValue > evValues[bi].evValue ? i : bi, 0);
-        $('#ev-bars').innerHTML = evValues.map((s, i) => {
-          const isBest = i === bestIdx;
-          const w = Math.max(3, (Math.abs(s.evValue) / maxEV) * 100);
-          return `<div class="ev-bar-item">
-            <div class="ev-bar-header">
-              <span class="ev-bar-name">${escapeHtml(s.optionName)}</span>
-              <span class="ev-bar-value ${isBest ? 'best' : 'not-best'}">${formatNumber(s.evValue)}</span>
-            </div>
-            <div class="ev-bar-track"><div class="ev-bar-fill ${isBest ? 'best' : 'not-best'}" style="width:${w}%"></div></div>
+    // Clear all existing why-cards
+    $$('.why-card').forEach(card => card.remove());
+
+    if (ai.sections && ai.sections.length > 0) {
+      // AI picked the relevant frameworks — render only those
+      ai.sections.forEach((section, i) => {
+        const card = document.createElement('details');
+        card.className = 'why-card reveal-section';
+        // Auto-open first 3 sections
+        if (i < 3) card.open = true;
+
+        card.innerHTML = `
+          <summary>
+            <span class="why-num">${String(i + 1).padStart(2, '0')}</span>
+            <span>${escapeHtml(section.title)}</span>
+            <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </summary>
+          <div class="why-body">
+            <div class="narrative">${formatAIContent(section.content)}</div>
           </div>`;
-        }).join('');
-      } else {
-        $('#ev-bars').innerHTML = '';
-      }
+
+        const insertPoint = $('#personal-section') || $('#expiry-banner');
+        insertPoint.parentElement.insertBefore(card, insertPoint);
+      });
     }
 
-    // Section 2: Base Rate
-    if (ai.baseRate) {
-      let brHtml = confidenceBadge(ai.baseRate.confidence);
-      if (ai.baseRate.bullets && ai.baseRate.bullets.length) {
-        brHtml += '<ul>' + ai.baseRate.bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('') + '</ul>';
-      }
-      if (ai.baseRate.conclusion) {
-        brHtml += `<span class="callout">${escapeHtml(ai.baseRate.conclusion)}</span>`;
-      }
-      $('#base-narrative').innerHTML = brHtml;
-      $('#base-visual').innerHTML = '';
-    }
-
-    // Section 3: Sunk Cost
-    if (ai.sunkCost) {
-      $('#sunk-narrative').innerHTML = confidenceBadge(ai.sunkCost.confidence) + `<div class="narrative">${ai.sunkCost.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('')}</div>`;
-    }
-
-    // Section 4: Bayesian Update
-    if (ai.bayesian) {
-      let bayesHtml = confidenceBadge(ai.bayesian.confidence);
-      if (ai.bayesian.prior) bayesHtml += `<p><strong>Prior:</strong> ${escapeHtml(ai.bayesian.prior)}</p>`;
-      if (ai.bayesian.evidence && ai.bayesian.evidence.length) {
-        bayesHtml += '<p><strong>New evidence:</strong></p><ul>' + ai.bayesian.evidence.map(e => `<li>${escapeHtml(e)}</li>`).join('') + '</ul>';
-      }
-      if (ai.bayesian.posterior) bayesHtml += `<span class="callout">${escapeHtml(ai.bayesian.posterior)}</span>`;
-      $('#bayes-narrative').innerHTML = bayesHtml;
-      $('#bayes-visual').innerHTML = '';
-    }
-
-    // Section 5: Survivorship
-    if (ai.survivorship) {
-      $('#surv-narrative').innerHTML = confidenceBadge(ai.survivorship.confidence) + ai.survivorship.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('');
-    }
-
-    // Section 6: Kelly
-    if (ai.kelly) {
-      let kellyHtml = confidenceBadge(ai.kelly.confidence);
-      if (ai.kelly.currentAllocation) {
-        kellyHtml += `<p>${escapeHtml(ai.kelly.currentAllocation)}</p>`;
-      }
-      if (ai.kelly.recommendations && ai.kelly.recommendations.length) {
-        kellyHtml += ai.kelly.recommendations.map(r => {
-          const actionClass = (r.action || '').toLowerCase().includes('stop') ? 'stop'
-            : (r.action || '').toLowerCase().includes('reduce') ? 'reduce' : 'double';
-          return `<div class="kelly-rec">
-            <span class="kelly-action ${actionClass}">${escapeHtml(r.action)}</span>
-            <div class="kelly-rec-body"><strong>${escapeHtml(r.target)}</strong> — ${escapeHtml(r.reason)}</div>
-          </div>`;
-        }).join('');
-      }
-      $('#kelly-narrative').innerHTML = kellyHtml;
-      $('#kelly-visual').innerHTML = '';
-    }
-
-    // Section 7: Sensitivity
-    $('#sensitivity-sliders').innerHTML = '';
-    $('#sensitivity-result').innerHTML = '';
-
-    // Section 8: Opportunity Cost
-    if (ai.opportunityCost) {
-      let oppHtml = confidenceBadge(ai.opportunityCost.confidence);
-      oppHtml += ai.opportunityCost.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('');
-      if (ai.opportunityCost.hiddenCost) {
-        oppHtml += `<span class="callout">${escapeHtml(ai.opportunityCost.hiddenCost)}</span>`;
-      }
-      $('#opp-cost-narrative').innerHTML = oppHtml;
-    }
-
-    // Section 9: Regret Minimization
-    if (ai.regretMinimization) {
-      let regretHtml = confidenceBadge(ai.regretMinimization.confidence);
-      regretHtml += ai.regretMinimization.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('');
-      if (ai.regretMinimization.verdict) {
-        regretHtml += `<span class="callout">${escapeHtml(ai.regretMinimization.verdict)}</span>`;
-      }
-      $('#regret-narrative').innerHTML = regretHtml;
-    }
-
-    // Section 10: Reversibility
-    if (ai.reversibility) {
-      let revHtml = confidenceBadge(ai.reversibility.confidence);
-      if (ai.reversibility.options && ai.reversibility.options.length) {
-        ai.reversibility.options.forEach(opt => {
-          const color = opt.type === 'one-way' ? 'var(--red)' : opt.type === 'hard' ? 'var(--orange)' : 'var(--green)';
-          revHtml += `<p><strong>${escapeHtml(opt.name)}:</strong> <span style="color:${color};font-weight:600">${escapeHtml(opt.label || opt.type)}</span> — ${escapeHtml(opt.explanation)}</p>`;
-        });
-      }
-      if (ai.reversibility.verdict) {
-        revHtml += `<span class="callout">${escapeHtml(ai.reversibility.verdict)}</span>`;
-      }
-      $('#reverse-narrative').innerHTML = revHtml;
-      $('#reverse-visual').innerHTML = '';
-    }
-
-    // Section 11: Optionality
-    if (ai.optionality) {
-      let optHtml = confidenceBadge(ai.optionality.confidence);
-      optHtml += ai.optionality.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('');
-      if (ai.optionality.verdict) {
-        optHtml += `<span class="callout">${escapeHtml(ai.optionality.verdict)}</span>`;
-      }
-      $('#optionality-narrative').innerHTML = optHtml;
-    }
-
-    // Section 12: Pre-Mortem
-    if (ai.preMortem) {
-      let pmHtml = confidenceBadge(ai.preMortem.confidence);
-      if (ai.preMortem.failureModes && ai.preMortem.failureModes.length) {
-        pmHtml += '<p><strong>Most likely failure modes:</strong></p><ul>';
-        ai.preMortem.failureModes.forEach(mode => {
-          pmHtml += `<li>${escapeHtml(mode)}</li>`;
-        });
-        pmHtml += '</ul>';
-      }
-      if (ai.preMortem.mitigation) {
-        pmHtml += `<span class="callout"><strong>Early detection:</strong> ${escapeHtml(ai.preMortem.mitigation)}</span>`;
-      }
-      $('#premortem-narrative').innerHTML = pmHtml;
-    }
-
-    // Final Verdict
-    if (ai.finalVerdict) {
+    // Verdict detail
+    if (ai.verdict_detail) {
       let verdictHtml = '<div class="narrative">';
-      if (ai.finalVerdict.recommendation) {
-        verdictHtml += `<p><strong>${escapeHtml(ai.finalVerdict.recommendation)}</strong></p>`;
+      if (ai.verdict_detail.recommendation) {
+        verdictHtml += formatAIContent(ai.verdict_detail.recommendation);
       }
-      if (ai.finalVerdict.nextStep) {
-        verdictHtml += `<p>${escapeHtml(ai.finalVerdict.nextStep)}</p>`;
+      if (ai.verdict_detail.next_step) {
+        verdictHtml += `<span class="callout"><strong>Next 30 days:</strong> ${escapeHtml(ai.verdict_detail.next_step)}</span>`;
       }
-      if (ai.finalVerdict.hiddenInsight) {
-        verdictHtml += `<span class="callout">${escapeHtml(ai.finalVerdict.hiddenInsight)}</span>`;
+      if (ai.verdict_detail.hidden_insight) {
+        verdictHtml += `<span class="callout">${escapeHtml(ai.verdict_detail.hidden_insight)}</span>`;
       }
       verdictHtml += '</div>';
       $('#final-verdict').innerHTML = verdictHtml;
       $('#personal-section').hidden = false;
+    }
+
+    // AI-generated follow-up questions — store for possible re-analysis
+    if (ai.followup_questions && ai.followup_questions.length > 0) {
+      state._aiFollowups = ai.followup_questions;
+      renderAIFollowups(ai.followup_questions);
     }
 
     // Expiry
@@ -1017,6 +904,29 @@
 
     // Save AI analysis in state
     state.analysisResults = { ai, mode: 'ai' };
+  }
+
+  function renderAIFollowups(questions) {
+    // Show AI-suggested follow-up questions at the bottom of the answer
+    const existing = $('#ai-followups');
+    if (existing) existing.remove();
+
+    const container = document.createElement('div');
+    container.id = 'ai-followups';
+    container.className = 'ai-followups';
+    container.innerHTML = `
+      <h4>Want a sharper answer?</h4>
+      <p class="ai-followups-sub">These details would help me be more specific:</p>
+      ${questions.map((q, i) => `
+        <div class="ai-followup-item">
+          <p class="ai-followup-q">${escapeHtml(q.question)}</p>
+          ${q.why ? `<p class="ai-followup-why">${escapeHtml(q.why)}</p>` : ''}
+        </div>
+      `).join('')}
+    `;
+
+    const actions = $('.answer-actions');
+    if (actions) actions.parentElement.insertBefore(container, actions);
   }
 
   // ================================================================
@@ -2113,6 +2023,212 @@
   // ================================================================
   // CONVERSATIONAL FOLLOW-UP — Hyper-personalization
   // ================================================================
+  // Build contextual questions based on the user's actual input
+  function buildContextualQuestions(description, category) {
+    const desc = description.toLowerCase();
+    const questions = [];
+
+    // === ALWAYS: Where are you based? ===
+    if (!UserMemory.knows('location')) {
+      questions.push({
+        id: 'location',
+        question: "Where are you based? This shapes salaries, costs, and what's realistic.",
+        type: 'text',
+        placeholder: 'e.g. London, UK / Lagos, Nigeria / Austin, TX',
+      });
+    }
+
+    // === MONEY — triggered by financial signals ===
+    if (/salary|job|career|startup|funding|invest|business|freelance|income|quit|money|debt|savings|afford|budget|rent|mortgage|loan/i.test(desc)) {
+      if (!UserMemory.knows('runway')) {
+        questions.push({
+          id: 'runway',
+          question: "How long could you cover expenses with no income?",
+          type: 'options',
+          options: [
+            { label: 'Less than a month', value: '0' },
+            { label: '1–3 months', value: '1-3' },
+            { label: '3–6 months', value: '3-6' },
+            { label: '6–12 months', value: '6-12' },
+            { label: '12+ months', value: '12+' },
+          ],
+        });
+      }
+    }
+
+    // === WORK/ENERGY — triggered by demanding situations ===
+    if (/labour|working|hours|exhausted|tired|burnout|overtime|grind|hustle|juggling|busy|10.?hr|12.?hr/i.test(desc)) {
+      questions.push({
+        id: 'energy_situation',
+        question: "How's your energy day-to-day right now?",
+        type: 'options',
+        options: [
+          { label: 'Good — I have bandwidth', value: 'good' },
+          { label: 'Tight — stretched', value: 'tight' },
+          { label: 'Running on fumes', value: 'low' },
+          { label: 'Burned out', value: 'burned-out' },
+        ],
+      });
+    }
+
+    // === DEPENDENTS — triggered by family signals ===
+    if (/family|wife|husband|partner|child|kid|baby|parent|depend|support|mortgage/i.test(desc) && !UserMemory.knows('dependents')) {
+      questions.push({
+        id: 'dependents',
+        question: "Who depends on you financially?",
+        type: 'options',
+        options: [
+          { label: 'Just me', value: 'none' },
+          { label: 'Partner', value: 'partner' },
+          { label: 'Small family', value: 'family-small' },
+          { label: 'Larger family', value: 'family-large' },
+        ],
+      });
+    }
+
+    // === DEADLINE — triggered by urgency signals ===
+    if (/deadline|offer|expir|window|closing|soon|urgent|running out|before|by next/i.test(desc)) {
+      questions.push({
+        id: 'time_pressure',
+        question: "When does the window close?",
+        type: 'text',
+        placeholder: 'e.g. "offer expires Friday" or "no hard deadline"',
+      });
+    }
+
+    // === STARTUP — triggered by entrepreneurship ===
+    if (/startup|founder|mvp|beta|launch|app|saas|fintech|build|product|users|pitch|investor|funding|raise/i.test(desc)) {
+      questions.push({
+        id: 'traction',
+        question: "What traction do you have? Users, revenue, interest — anything concrete.",
+        type: 'text',
+        placeholder: 'e.g. "built MVP, 0 users" or "50 beta users, 3 paying"',
+      });
+    }
+
+    // === CAREER — triggered by job signals ===
+    if (/job|career|role|position|offer|interview|promotion|switch|resign|quit|salary|boss|company|hire/i.test(desc)) {
+      if (!UserMemory.knows('life_stage')) {
+        questions.push({
+          id: 'life_stage',
+          question: "Where are you in your career?",
+          type: 'options',
+          options: [
+            { label: 'Just starting', value: 'student' },
+            { label: 'Early career (0-5 years)', value: 'early-career' },
+            { label: 'Mid-career', value: 'mid-career' },
+            { label: 'Pivoting to something new', value: 'career-change' },
+          ],
+        });
+      }
+    }
+
+    // === EDUCATION/CERT — triggered by learning signals ===
+    if (/cert|course|degree|master|mba|phd|exam|study|qualification|credential|training|bootcamp/i.test(desc)) {
+      questions.push({
+        id: 'cert_status',
+        question: "How far along are you — and how much have you invested?",
+        type: 'text',
+        placeholder: 'e.g. "paid £500, halfway, exam in 3 months"',
+      });
+    }
+
+    // === RELATIONSHIP ===
+    if (/partner|relationship|marry|marriage|move in|break up|divorce|together|dating|commit/i.test(desc)) {
+      questions.push({
+        id: 'relationship_length',
+        question: "How long have you been together?",
+        type: 'text',
+        placeholder: 'e.g. "3 years, they want to move in"',
+      });
+    }
+
+    // === RELOCATION ===
+    if (/move|relocat|city|country|abroad|emigrat|immigrat/i.test(desc)) {
+      questions.push({
+        id: 'relocation_ties',
+        question: "What keeps you where you are now?",
+        type: 'text',
+        placeholder: 'e.g. "close family, cheap rent, good friends"',
+      });
+    }
+
+    // === PAST ATTEMPTS ===
+    if (/again|before|tried|attempt|retry|failed|last time|previous|second time/i.test(desc)) {
+      questions.push({
+        id: 'past_attempts',
+        question: "What happened last time?",
+        type: 'text',
+        placeholder: 'e.g. "tried in 2022, couldn\'t find clients"',
+      });
+    }
+
+    // === CULTURAL PRESSURE ===
+    if (/family expect|parents want|culture|tradition|pressure|community|disapprov/i.test(desc) && !UserMemory.knows('cultural')) {
+      questions.push({
+        id: 'cultural',
+        question: "How much weight do family expectations carry here?",
+        type: 'options',
+        options: [
+          { label: 'None — my call', value: 'none' },
+          { label: 'Some, but I can push back', value: 'some' },
+          { label: 'Strong expectations', value: 'strong' },
+          { label: 'Defying has consequences', value: 'dominant' },
+        ],
+      });
+    }
+
+    // === DAILY DECISIONS — lighter, faster ===
+    if (isDaily(category, description)) {
+      questions.length = 0;
+
+      if (/eat|food|restaurant|cook|hungry|lunch|dinner|pizza|sushi|order/i.test(desc)) {
+        questions.push({
+          id: 'mood_right_now',
+          question: "What sounds good — comfort or adventure?",
+          type: 'options',
+          options: [
+            { label: 'Comfort — something reliable', value: 'chill' },
+            { label: 'Adventure — try something new', value: 'energized' },
+            { label: 'Healthy — feel good after', value: 'health' },
+            { label: 'Quick — I\'m starving', value: 'tired' },
+          ],
+        });
+      } else {
+        questions.push({
+          id: 'mood_right_now',
+          question: "What's your energy like right now?",
+          type: 'options',
+          options: [
+            { label: 'Energized', value: 'energized' },
+            { label: 'Chill', value: 'chill' },
+            { label: 'Tired', value: 'tired' },
+            { label: 'Bored', value: 'bored' },
+          ],
+        });
+      }
+
+      if (/eat|food|buy|shop|ticket|trip|go out|order|delivery/i.test(desc)) {
+        questions.push({
+          id: 'budget_today',
+          question: "Budget?",
+          type: 'options',
+          options: [
+            { label: 'Free', value: 'free' },
+            { label: '$5-20', value: 'low' },
+            { label: '$20-50', value: 'moderate' },
+            { label: 'Treat yourself', value: 'splurge' },
+          ],
+        });
+      }
+
+      return questions.slice(0, 2);
+    }
+
+    return questions.filter(q => !UserMemory.knows(q.id)).slice(0, 4);
+  }
+
+  // Legacy compat — kept for reference but unused
   const FOLLOWUP_QUESTIONS = [
     {
       id: 'location',
@@ -2335,14 +2451,7 @@
   }
 
   function buildFollowupQueue(description, category) {
-    if (isDaily(category, description)) {
-      // Lighter, faster questions for everyday decisions
-      const relevant = DAILY_FOLLOWUP_QUESTIONS.filter(q => q.triggers(description, category));
-      return relevant.slice(0, 3); // Max 3 for daily — keep it snappy
-    }
-    // Serious decisions: full personalization
-    const relevant = FOLLOWUP_QUESTIONS.filter(q => q.triggers(description, category));
-    return relevant.slice(0, 6);
+    return buildContextualQuestions(description, category);
   }
 
   function startFollowupChat() {
@@ -2461,24 +2570,24 @@
   }
 
   function collectContextFromAnswers() {
+    // Merge all answers — both new contextual IDs and legacy IDs
+    const a = followupAnswers;
     state.context = {
-      location: followupAnswers.location || UserMemory.get('location') || '',
-      lifeStage: followupAnswers.life_stage || UserMemory.get('life_stage') || '',
-      dependents: followupAnswers.dependents || UserMemory.get('dependents') || '',
-      runway: followupAnswers.runway || UserMemory.get('runway') || '',
-      emotionalState: followupAnswers.emotional_state || '',
-      riskTolerance: followupAnswers.risk_tolerance || UserMemory.get('risk_tolerance') || '',
-      cultural: followupAnswers.cultural || UserMemory.get('cultural') || '',
-      healthEnergy: followupAnswers.health_energy || '',
-      supportNetwork: followupAnswers.support_network || '',
-      timePressure: followupAnswers.time_pressure || '',
-      pastAttempts: followupAnswers.past_attempts || '',
-      mood_right_now: followupAnswers.mood_right_now || '',
-      time_available: followupAnswers.time_available || '',
-      solo_or_social: followupAnswers.solo_or_social || '',
-      priority_today: followupAnswers.priority_today || '',
-      recent_pattern: followupAnswers.recent_pattern || '',
-      budget_today: followupAnswers.budget_today || '',
+      location: a.location || UserMemory.get('location') || '',
+      lifeStage: a.life_stage || UserMemory.get('life_stage') || '',
+      dependents: a.dependents || UserMemory.get('dependents') || '',
+      runway: a.runway || UserMemory.get('runway') || '',
+      emotionalState: a.energy_situation || a.emotional_state || '',
+      riskTolerance: a.risk_tolerance || UserMemory.get('risk_tolerance') || '',
+      cultural: a.cultural || UserMemory.get('cultural') || '',
+      timePressure: a.time_pressure || '',
+      pastAttempts: a.past_attempts || '',
+      traction: a.traction || '',
+      certStatus: a.cert_status || '',
+      relationshipLength: a.relationship_length || '',
+      relocationTies: a.relocation_ties || '',
+      mood_right_now: a.mood_right_now || '',
+      budget_today: a.budget_today || '',
     };
   }
 

@@ -870,6 +870,45 @@ body {
 }
 .action-btn:hover { border-color: var(--white-20); color: var(--white); }
 
+/* AI follow-up questions */
+.ai-followups {
+  margin: var(--space-6) 0;
+  padding: var(--space-5);
+  background: var(--dark-2);
+  border: 1px solid var(--white-10);
+  border-radius: var(--radius-xl);
+}
+.ai-followups h4 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: var(--space-1);
+}
+.ai-followups-sub {
+  font-size: var(--text-sm);
+  color: var(--gray-3);
+  margin-bottom: var(--space-4);
+}
+.ai-followup-item {
+  padding: var(--space-3) var(--space-4);
+  background: var(--dark-3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+  border-left: 2px solid var(--red);
+}
+.ai-followup-q {
+  font-size: var(--text-sm);
+  color: var(--white-80);
+  font-weight: 500;
+  margin: 0;
+}
+.ai-followup-why {
+  font-size: var(--text-xs);
+  color: var(--gray-3);
+  margin: 4px 0 0;
+  font-style: italic;
+}
+
 /* Share toast */
 .share-toast {
   position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px);
