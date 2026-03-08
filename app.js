@@ -2115,27 +2115,36 @@
   }
 
   // ================================================================
-  // VOICE INPUT
+  // VOICE INPUT — Reusable voice-to-text for any input
   // ================================================================
-  const micBtn = $('#mic-btn');
-  const micHint = $('#mic-hint');
-  const micIcon = micBtn ? micBtn.querySelector('.mic-icon') : null;
-  const micStop = micBtn ? micBtn.querySelector('.mic-stop') : null;
-  const micRing = $('#mic-ring');
-  let recognition = null;
-  let voiceStream = null;
-  let voiceAnimFrame = null;
+  const hasSpeechAPI = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 
-  if (micBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+  // Creates a voice input controller for a mic button + target textarea/input
+  // Returns { start, stop, destroy } or null if Speech API unavailable
+  function createVoiceInput(opts) {
+    // opts: { micBtn, micHint, micRing, canvas, targetEl, hintText, listeningText, onUpdate }
+    if (!hasSpeechAPI || !opts.micBtn) return null;
+
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRec();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    const rec = new SpeechRec();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+
+    const micBtn = opts.micBtn;
+    const micIcon = micBtn.querySelector('.mic-icon');
+    const micStop = micBtn.querySelector('.mic-stop');
+    const micRing = opts.micRing || null;
+    const micHint = opts.micHint || null;
+    const canvas = opts.canvas || null;
+    const hintText = opts.hintText || 'Tap to speak';
+    const listeningText = opts.listeningText || 'Listening...';
 
     let finalTranscript = '';
+    let stream = null;
+    let animFrame = null;
 
-    recognition.onresult = (e) => {
+    rec.onresult = (e) => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
@@ -2144,52 +2153,47 @@
           interim += e.results[i][0].transcript;
         }
       }
-      decisionInput.value = finalTranscript + interim;
-      autoResize();
-      validateInput();
+      if (opts.targetEl) {
+        opts.targetEl.value = finalTranscript + interim;
+        // Auto-resize for textareas
+        if (opts.targetEl.tagName === 'TEXTAREA') {
+          opts.targetEl.style.height = 'auto';
+          opts.targetEl.style.height = opts.targetEl.scrollHeight + 'px';
+        }
+      }
+      if (opts.onUpdate) opts.onUpdate(finalTranscript + interim);
     };
 
-    recognition.onerror = () => stopVoice();
-    recognition.onend = () => stopVoice();
+    rec.onerror = () => stop();
+    rec.onend = () => stop();
 
-    micBtn.addEventListener('click', () => {
-      if (micBtn.classList.contains('recording')) {
-        stopVoice();
-      } else {
-        startVoice();
-      }
-    });
-
-    function startVoice() {
-      finalTranscript = decisionInput.value;
+    function start() {
+      finalTranscript = opts.targetEl ? opts.targetEl.value : '';
       micBtn.classList.add('recording');
       if (micIcon) micIcon.style.display = 'none';
       if (micStop) micStop.style.display = 'block';
       if (micRing) micRing.classList.add('active');
-      if (micHint) micHint.textContent = 'Listening...';
-      recognition.start();
+      if (micHint) micHint.textContent = listeningText;
+      rec.start();
 
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        voiceStream = stream;
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
+        stream = s;
         const ctx = new AudioContext();
-        const source = ctx.createMediaStreamSource(stream);
+        const source = ctx.createMediaStreamSource(s);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 64;
         source.connect(analyser);
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        const canvas = $('#voice-waveform');
+        const freqData = new Uint8Array(analyser.frequencyBinCount);
         if (!canvas) return;
         canvas.style.display = 'block';
         const cCtx = canvas.getContext('2d');
         function drawWave() {
-          voiceAnimFrame = requestAnimationFrame(drawWave);
-          analyser.getByteFrequencyData(data);
+          animFrame = requestAnimationFrame(drawWave);
+          analyser.getByteFrequencyData(freqData);
           cCtx.clearRect(0, 0, canvas.width, canvas.height);
-          const bars = 20;
-          const w = 3;
-          const gap = 3;
+          const bars = 20, w = 3, gap = 3;
           for (let i = 0; i < bars; i++) {
-            const v = data[i] / 255;
+            const v = freqData[i] / 255;
             const h = Math.max(2, v * canvas.height);
             const x = i * (w + gap);
             cCtx.fillStyle = v > 0.5 ? '#D71921' : 'rgba(255,255,255,0.3)';
@@ -2200,25 +2204,62 @@
       }).catch(() => {});
     }
 
-    function stopVoice() {
+    function stop() {
       micBtn.classList.remove('recording');
       if (micIcon) micIcon.style.display = '';
       if (micStop) micStop.style.display = 'none';
       if (micRing) micRing.classList.remove('active');
-      if (micHint) micHint.textContent = 'Tap to speak';
-      try { recognition.stop(); } catch {}
-      if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
-      if (voiceAnimFrame) { cancelAnimationFrame(voiceAnimFrame); voiceAnimFrame = null; }
-      const canvas = $('#voice-waveform');
+      if (micHint) micHint.textContent = hintText;
+      try { rec.stop(); } catch {}
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
       if (canvas) {
         canvas.style.display = 'none';
         const cCtx = canvas.getContext('2d');
         cCtx.clearRect(0, 0, canvas.width, canvas.height);
       }
     }
-  } else if (micBtn) {
+
+    micBtn.addEventListener('click', () => {
+      if (micBtn.classList.contains('recording')) stop(); else start();
+    });
+
+    return { start, stop };
+  }
+
+  // --- Home screen voice input ---
+  const micBtn = $('#mic-btn');
+  const homeVoice = createVoiceInput({
+    micBtn,
+    micHint: $('#mic-hint'),
+    micRing: $('#mic-ring'),
+    canvas: $('#voice-waveform'),
+    targetEl: decisionInput,
+    hintText: 'Tap to speak',
+    listeningText: 'Listening...',
+    onUpdate: () => { autoResize(); validateInput(); },
+  });
+  if (!homeVoice && micBtn) {
     micBtn.style.display = 'none';
-    if (micHint) micHint.style.display = 'none';
+    const hint = $('#mic-hint');
+    if (hint) hint.style.display = 'none';
+  }
+
+  // --- Debate voice input ---
+  const debateMicBtn = $('#debate-mic-btn');
+  const debateVoice = createVoiceInput({
+    micBtn: debateMicBtn,
+    micHint: $('#debate-mic-hint'),
+    micRing: $('#debate-mic-ring'),
+    canvas: $('#debate-voice-waveform'),
+    targetEl: $('#debate-argument-input'),
+    hintText: 'Tap to speak your argument',
+    listeningText: 'Listening — speak your side...',
+  });
+  if (!debateVoice && debateMicBtn) {
+    debateMicBtn.style.display = 'none';
+    const hint = $('#debate-mic-hint');
+    if (hint) hint.style.display = 'none';
   }
 
   // ================================================================
@@ -2332,6 +2373,7 @@
 
   $('#debate-back').addEventListener('click', () => {
     stopDebatePolling();
+    if (debateVoice) debateVoice.stop();
     showScreen('home');
     initHome();
   });
@@ -2484,6 +2526,7 @@
 
   // Submit argument
   $('#debate-submit-arg-btn').addEventListener('click', async () => {
+    if (debateVoice) debateVoice.stop();
     const argument = $('#debate-argument-input').value.trim();
     if (argument.length < 5) return showDebateError('Write at least a sentence for your argument.');
 

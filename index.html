@@ -240,7 +240,15 @@
 
           <div class="debate-my-arg" id="debate-my-arg">
             <h3>Your argument</h3>
-            <textarea id="debate-argument-input" class="journal-input" rows="4" placeholder="Make your case..." maxlength="2000"></textarea>
+            <p class="debate-voice-hint">Tap the mic and speak your side — or type below.</p>
+            <button type="button" class="mic-btn debate-mic-btn" id="debate-mic-btn" aria-label="Speak your argument">
+              <div class="mic-ring" id="debate-mic-ring"></div>
+              <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M5 12a7 7 0 0014 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 19v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <svg class="mic-stop" width="24" height="24" viewBox="0 0 24 24" fill="none" style="display:none"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>
+              <canvas id="debate-voice-waveform" class="mic-waveform" width="120" height="32"></canvas>
+            </button>
+            <p class="mic-hint" id="debate-mic-hint">Tap to speak your argument</p>
+            <textarea id="debate-argument-input" class="journal-input" rows="4" placeholder="Or type your case here..." maxlength="2000"></textarea>
             <button type="button" class="btn-primary-full" id="debate-submit-arg-btn">Submit my argument</button>
           </div>
 

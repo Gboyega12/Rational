@@ -1306,19 +1306,29 @@ body {
   padding-top: var(--space-3);
 }
 
-/* My argument */
+/* My argument — voice-first */
 .debate-my-arg {
   margin-bottom: var(--space-6);
+  text-align: center;
 }
 .debate-my-arg h3 {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--white-60);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.debate-voice-hint {
+  font-size: var(--text-xs);
+  color: var(--gray-3);
+  margin-bottom: var(--space-4);
+}
+.debate-mic-btn {
+  margin: 0 auto var(--space-2);
 }
 .debate-my-arg textarea {
   min-height: 100px;
   margin-bottom: var(--space-3);
+  text-align: left;
 }
 
 .debate-submitted-label {
