@@ -2375,7 +2375,20 @@
     participantId: null,
     pollInterval: null,
     lastStatus: null,
+    personality: 'straight',
   };
+
+  // Personality picker chip selection
+  const personalityOptions = $('#personality-options');
+  if (personalityOptions) {
+    personalityOptions.addEventListener('click', (e) => {
+      const chip = e.target.closest('.personality-chip');
+      if (!chip) return;
+      personalityOptions.querySelectorAll('.personality-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      debateState.personality = chip.dataset.personality;
+    });
+  }
 
   // Entry point
   const debateEntryBtn = $('#debate-entry-btn');
@@ -2440,7 +2453,7 @@
       const res = await fetch('/api/room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', topic, creatorName: name }),
+        body: JSON.stringify({ action: 'create', topic, creatorName: name, personality: debateState.personality }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create room');
@@ -2501,6 +2514,16 @@
 
     $('#debate-room-topic').textContent = room.topic;
     $('#debate-room-code').textContent = room.code;
+
+    // Show personality badge
+    const personalityLabels = { straight: '🎯 Straight up', roast: '🔥 Roast mode', chill: '😎 Chill vibes', hype: '🚀 Hype man' };
+    const pBadge = $('#debate-room-personality');
+    if (room.personality && personalityLabels[room.personality]) {
+      pBadge.textContent = personalityLabels[room.personality];
+      pBadge.hidden = false;
+    } else {
+      pBadge.hidden = true;
+    }
 
     // Show/hide argument input based on whether we already submitted
     const me = room.participants.find(p => p.id === debateState.participantId);

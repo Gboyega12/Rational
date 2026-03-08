@@ -40,13 +40,17 @@ export default async function handler(req, res) {
 
   // CREATE — start a new debate room
   if (action === 'create') {
-    const { topic, creatorName } = req.body;
+    const { topic, creatorName, personality } = req.body;
     if (!topic || topic.length < 5) return res.status(400).json({ error: 'Topic too short' });
+
+    const validPersonalities = ['straight', 'roast', 'chill', 'hype'];
+    const roomPersonality = validPersonalities.includes(personality) ? personality : 'straight';
 
     const code = generateCode();
     const room = {
       code,
       topic,
+      personality: roomPersonality,
       createdAt: Date.now(),
       status: 'arguing', // arguing → voting → analyzing → decided
       participants: [{
@@ -148,6 +152,7 @@ function sanitizeRoom(room) {
   return {
     code: room.code,
     topic: room.topic,
+    personality: room.personality || 'straight',
     status: room.status,
     createdAt: room.createdAt,
     participants: room.participants.map(p => ({
@@ -166,7 +171,45 @@ async function analyzeDebate(apiKey, room) {
     .map((p, i) => `**${p.name}** says:\n"${p.argument}"`)
     .join('\n\n');
 
-  const systemPrompt = `You are Rational, a decision partner that settles arguments with facts, data, and clear reasoning. You're the smart friend everyone trusts to be fair.
+  const personalityTones = {
+    straight: `You are Rational, a decision partner that settles arguments with facts, data, and clear reasoning. You're the smart friend everyone trusts to be fair.
+
+WRITING RULES:
+- Plain English. No jargon, no academic language.
+- Be diplomatic but honest. If someone's argument has a fatal flaw, say so kindly.`,
+
+    roast: `You are Rational in ROAST MODE. You settle arguments with facts AND flames. Think comedy roast meets fact-check — you're the brutally honest friend who doesn't sugarcoat anything but always backs it up with data.
+
+WRITING RULES:
+- Roast weak arguments HARD. Be savage but funny, never mean-spirited or personal.
+- Use humor, sarcasm, and witty one-liners. Think stand-up comedian meets debate judge.
+- Still use real facts and data — the roast hits harder when it's TRUE.
+- Give credit where it's due. If someone made a good point, hype it up before roasting the rest.
+- Use slang, gen-z language, and pop culture references where they fit.`,
+
+    chill: `You are Rational in CHILL MODE. You settle arguments like a calm, wise friend on the couch — no stress, no drama, just vibes and facts. Think stoner philosopher who somehow always has the right answer.
+
+WRITING RULES:
+- Super laid-back tone. Use phrases like "honestly though", "real talk", "here's the thing", "no cap".
+- Be gentle with everyone's arguments. Even when someone's wrong, let them down easy.
+- Keep it conversational and warm. Like texting a wise friend at 2am.
+- Still cite real data, but casually — "studies show..." not "according to peer-reviewed research..."
+- Find the peace. Lean toward compromise and common ground.`,
+
+    hype: `You are Rational in HYPE MAN MODE. You settle arguments like you're announcing a boxing match — high energy, dramatic reveals, and maximum entertainment. Think sports commentator meets TED talk.
+
+WRITING RULES:
+- HIGH ENERGY. Use exclamation marks, dramatic pauses (—), and build-up.
+- Hype up EVERY argument before breaking it down. Make each person feel like a contender.
+- Use sports/competition metaphors. "Let's go to the scoreboard", "knockout punch", "game-changer".
+- When announcing the winner, make it DRAMATIC. Build suspense.
+- Still fact-based, but deliver data like it's a mic-drop moment.
+- Be encouraging even to the loser — "you came with HEAT but..."`,
+  };
+
+  const toneBlock = personalityTones[room.personality] || personalityTones.straight;
+
+  const systemPrompt = `${toneBlock}
 
 You are analyzing a group debate/argument. Multiple people have submitted their positions on a topic. Your job:
 
@@ -177,12 +220,10 @@ You are analyzing a group debate/argument. Multiple people have submitted their 
 5. FIND COMMON GROUND — where do the arguments actually agree?
 6. SUGGEST A COMPROMISE if the truth is somewhere in the middle
 
-WRITING RULES:
-- Plain English. No jargon, no academic language.
+ADDITIONAL RULES:
 - Use each person's NAME when addressing their points.
 - Bullet points for facts and data. Prose for insights.
 - Be specific with numbers and sources.
-- Be diplomatic but honest. If someone's argument has a fatal flaw, say so kindly.
 
 Return ONLY valid JSON (no markdown fences):
 {

@@ -271,6 +271,27 @@
               <div class="field" id="debate-create-fields" hidden>
                 <input id="debate-topic" class="input" type="text" placeholder="What's the argument about?" maxlength="300">
                 <input id="debate-creator-name" class="input" type="text" placeholder="Your name" maxlength="30">
+                <div class="personality-picker">
+                  <label class="personality-label">Vibe of the verdict</label>
+                  <div class="personality-options" id="personality-options">
+                    <button type="button" class="personality-chip selected" data-personality="straight">
+                      <span class="personality-emoji">🎯</span>
+                      <span class="personality-name">Straight up</span>
+                    </button>
+                    <button type="button" class="personality-chip" data-personality="roast">
+                      <span class="personality-emoji">🔥</span>
+                      <span class="personality-name">Roast</span>
+                    </button>
+                    <button type="button" class="personality-chip" data-personality="chill">
+                      <span class="personality-emoji">😎</span>
+                      <span class="personality-name">Chill</span>
+                    </button>
+                    <button type="button" class="personality-chip" data-personality="hype">
+                      <span class="personality-emoji">🚀</span>
+                      <span class="personality-name">Hype man</span>
+                    </button>
+                  </div>
+                </div>
                 <button type="button" class="btn-primary-full" id="debate-create-btn">Create room</button>
               </div>
             </div>
@@ -292,6 +313,7 @@
         <div id="debate-room" class="debate-step" hidden>
           <div class="debate-room-header">
             <h2 id="debate-room-topic"></h2>
+            <span class="debate-room-personality" id="debate-room-personality" hidden></span>
             <div class="debate-room-code-wrap">
               <span class="debate-room-code-label">Room code</span>
               <span class="debate-room-code" id="debate-room-code"></span>
