@@ -317,9 +317,13 @@
     autoResize();
     validateInput();
   });
+  decisionInput.addEventListener('change', () => validateInput());
+  decisionInput.addEventListener('paste', () => setTimeout(validateInput, 0));
 
   // Send button — start analysis flow
-  sendBtn.addEventListener('click', () => startAnalysisFlow());
+  sendBtn.addEventListener('click', () => {
+    if (decisionInput.value.trim().length >= 5) startAnalysisFlow();
+  });
 
   // Enter to send (shift+enter for newline)
   decisionInput.addEventListener('keydown', (e) => {
@@ -2032,18 +2036,7 @@
       showNextFollowupQuestion();
       return;
     }
-        emotionalState: followupAnswers.emotional_state || '',
-        riskTolerance: followupAnswers.risk_tolerance || '',
-        cultural: followupAnswers.cultural || '',
-        healthEnergy: followupAnswers.health_energy || '',
-        supportNetwork: followupAnswers.support_network || '',
-        timePressure: followupAnswers.time_pressure || '',
-        pastAttempts: followupAnswers.past_attempts || '',
-        // Daily decision keys (keep underscores for direct access)
-        mood_right_now: followupAnswers.mood_right_now || '',
-        time_available: followupAnswers.time_available || '',
-        solo_or_social: followupAnswers.solo_or_social || '',
-        priority_today: followupAnswers.priority_today || '',
+
     // Add question bubble with typing indicator first
     const typingEl = document.createElement('div');
     typingEl.className = 'chat-msg chat-bot chat-typing';
