@@ -1,0 +1,10 @@
+{
+  "name": "rational",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Decision analysis powered by math and AI",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}

@@ -166,9 +166,12 @@
   // ================================================================
   const decisionInput = $('#decision-input');
   const step1Next = $('.next-step[data-next="2"]');
+  const aiAnalyzeBtn = $('#ai-analyze-btn');
 
   function validateStep1() {
-    step1Next.disabled = decisionInput.value.trim().length < 20;
+    const valid = decisionInput.value.trim().length >= 20;
+    step1Next.disabled = !valid;
+    aiAnalyzeBtn.disabled = !valid;
   }
 
   decisionInput.addEventListener('input', () => {
@@ -721,6 +724,186 @@
   });
 
   // ================================================================
+  // AI ANALYSIS FLOW
+  // ================================================================
+  aiAnalyzeBtn.addEventListener('click', async () => {
+    state.decision = decisionInput.value.trim();
+    state.category = $('#decision-category').value;
+    state.timeHorizon = $('#time-horizon').value;
+    state.deadline = $('#decision-deadline').value;
+
+    // Show loading
+    const loading = $('#ai-loading');
+    loading.hidden = false;
+    aiAnalyzeBtn.disabled = true;
+    step1Next.disabled = true;
+
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: state.decision,
+          category: state.category,
+          timeHorizon: state.timeHorizon,
+          deadline: state.deadline,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `API error ${res.status}`);
+      }
+
+      const { analysis } = await res.json();
+      renderAIResults(analysis);
+      showScreen('results');
+    } catch (err) {
+      console.error('AI analysis failed:', err);
+      loading.hidden = true;
+      validateStep1();
+      // Show error with fallback
+      alert(`AI analysis unavailable: ${err.message}\n\nUse "Refine manually" to analyze with the local engine instead.`);
+    }
+  });
+
+  function renderAIResults(ai) {
+    // Hide loading
+    $('#ai-loading').hidden = true;
+    validateStep1();
+
+    // Verdict hero
+    $('.verdict-heading').innerHTML = escapeHtml(ai.verdict?.title || 'Analysis complete') + '<span class="ai-badge">AI</span>';
+    $('#verdict-sub').textContent = ai.verdict?.subtitle || '';
+
+    // Section 1: Expected Value
+    if (ai.ev) {
+      const evEl = $('#ev-narrative');
+      let evHtml = '';
+      if (ai.ev.sections) {
+        ai.ev.sections.forEach(sec => {
+          evHtml += `<div class="ev-option-block"><h4>${escapeHtml(sec.optionName)}</h4>`;
+          if (sec.bullets && sec.bullets.length) {
+            evHtml += '<ul>' + sec.bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('') + '</ul>';
+          }
+          if (sec.evCalculation) {
+            evHtml += `<div class="ev-calc">${escapeHtml(sec.evCalculation)}</div>`;
+          }
+          evHtml += '</div>';
+        });
+      }
+      if (ai.ev.conclusion) {
+        evHtml += `<p><strong>${escapeHtml(ai.ev.conclusion)}</strong></p>`;
+      }
+      evEl.innerHTML = evHtml;
+
+      // EV bars
+      const evValues = (ai.ev.sections || []).filter(s => s.evValue != null);
+      if (evValues.length > 0) {
+        const maxEV = Math.max(...evValues.map(s => Math.abs(s.evValue)), 1);
+        const bestIdx = evValues.reduce((bi, s, i) => s.evValue > evValues[bi].evValue ? i : bi, 0);
+        $('#ev-bars').innerHTML = evValues.map((s, i) => {
+          const isBest = i === bestIdx;
+          const w = Math.max(3, (Math.abs(s.evValue) / maxEV) * 100);
+          return `<div class="ev-bar-item">
+            <div class="ev-bar-header">
+              <span class="ev-bar-name">${escapeHtml(s.optionName)}</span>
+              <span class="ev-bar-value ${isBest ? 'best' : 'not-best'}">${formatNumber(s.evValue)}</span>
+            </div>
+            <div class="ev-bar-track"><div class="ev-bar-fill ${isBest ? 'best' : 'not-best'}" style="width:${w}%"></div></div>
+          </div>`;
+        }).join('');
+      } else {
+        $('#ev-bars').innerHTML = '';
+      }
+      $('#ev-math').textContent = (ai.ev.sections || []).map(s => `${s.optionName}: ${s.evCalculation || 'N/A'}`).join('\n\n');
+    }
+
+    // Section 2: Base Rate
+    if (ai.baseRate) {
+      let brHtml = '';
+      if (ai.baseRate.bullets && ai.baseRate.bullets.length) {
+        brHtml += '<ul>' + ai.baseRate.bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('') + '</ul>';
+      }
+      if (ai.baseRate.conclusion) {
+        brHtml += `<span class="callout">${escapeHtml(ai.baseRate.conclusion)}</span>`;
+      }
+      $('#base-narrative').innerHTML = brHtml;
+      $('#base-visual').innerHTML = '';
+      $('#bayes-math').textContent = ai.baseRate.bullets?.join('\n') || '';
+    }
+
+    // Section 3: Sunk Cost
+    if (ai.sunkCost) {
+      $('#sunk-narrative').innerHTML = `<div class="narrative">${ai.sunkCost.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('')}</div>`;
+    }
+
+    // Section 4: Bayesian Update
+    if (ai.bayesian) {
+      let bayesHtml = '';
+      if (ai.bayesian.prior) bayesHtml += `<p><strong>Prior:</strong> ${escapeHtml(ai.bayesian.prior)}</p>`;
+      if (ai.bayesian.evidence && ai.bayesian.evidence.length) {
+        bayesHtml += '<p><strong>New evidence:</strong></p><ul>' + ai.bayesian.evidence.map(e => `<li>${escapeHtml(e)}</li>`).join('') + '</ul>';
+      }
+      if (ai.bayesian.posterior) bayesHtml += `<span class="callout">${escapeHtml(ai.bayesian.posterior)}</span>`;
+      $('#bayes-narrative').innerHTML = bayesHtml;
+      $('#bayes-visual').innerHTML = '';
+    }
+
+    // Section 5: Survivorship
+    if (ai.survivorship) {
+      $('#surv-narrative').innerHTML = ai.survivorship.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('');
+    }
+
+    // Section 6: Kelly
+    if (ai.kelly) {
+      let kellyHtml = '';
+      if (ai.kelly.currentAllocation) {
+        kellyHtml += `<p>${escapeHtml(ai.kelly.currentAllocation)}</p>`;
+      }
+      if (ai.kelly.recommendations && ai.kelly.recommendations.length) {
+        kellyHtml += ai.kelly.recommendations.map(r => {
+          const actionClass = (r.action || '').toLowerCase().includes('stop') ? 'stop'
+            : (r.action || '').toLowerCase().includes('reduce') ? 'reduce' : 'double';
+          return `<div class="kelly-rec">
+            <span class="kelly-action ${actionClass}">${escapeHtml(r.action)}</span>
+            <div class="kelly-rec-body"><strong>${escapeHtml(r.target)}</strong> — ${escapeHtml(r.reason)}</div>
+          </div>`;
+        }).join('');
+      }
+      $('#kelly-narrative').innerHTML = kellyHtml;
+      $('#kelly-visual').innerHTML = '';
+      $('#kelly-math').textContent = ai.kelly.recommendations?.map(r => `${r.action}: ${r.target} — ${r.reason}`).join('\n') || '';
+    }
+
+    // Section 7: Sensitivity — hide in AI mode (AI handles uncertainty in narrative)
+    $('#sensitivity-sliders').innerHTML = '';
+    $('#sensitivity-result').innerHTML = '';
+
+    // Final Verdict
+    if (ai.finalVerdict) {
+      let verdictHtml = '<div class="narrative">';
+      if (ai.finalVerdict.recommendation) {
+        verdictHtml += `<p><strong>${escapeHtml(ai.finalVerdict.recommendation)}</strong></p>`;
+      }
+      if (ai.finalVerdict.nextStep) {
+        verdictHtml += `<p>${escapeHtml(ai.finalVerdict.nextStep)}</p>`;
+      }
+      if (ai.finalVerdict.hiddenInsight) {
+        verdictHtml += `<span class="callout">${escapeHtml(ai.finalVerdict.hiddenInsight)}</span>`;
+      }
+      verdictHtml += '</div>';
+      $('#final-verdict').innerHTML = verdictHtml;
+    }
+
+    // Expiry
+    renderExpiryBanner();
+
+    // Save AI analysis in state for saving
+    state.analysisResults = { ai, mode: 'ai' };
+  }
+
+  // ================================================================
   // CALCULATION ENGINE
   // ================================================================
   function calculateEV() {
@@ -1144,9 +1327,36 @@
   // SAVE / EXPORT / DASHBOARD
   // ================================================================
   $('#save-decision-btn').addEventListener('click', () => {
-    const evs = state.analysisResults?.evs;
-    if (!evs) return;
-    const best = [...evs].sort((a, b) => b.ev - a.ev)[0];
+    const results = state.analysisResults;
+    if (!results) return;
+
+    let recommendation, bestEV, options, outcomes;
+
+    if (results.mode === 'ai' && results.ai) {
+      // AI mode — extract from AI response
+      recommendation = results.ai.verdict?.title || 'See analysis';
+      bestEV = results.ai.ev?.sections?.[0]?.evValue || 0;
+      options = (results.ai.ev?.sections || []).map(s => s.optionName);
+      outcomes = {};
+      (results.ai.ev?.sections || []).forEach((s, i) => {
+        outcomes[i] = [{ description: s.evCalculation || s.optionName, probability: 0.5, payoff: s.evValue || 0 }];
+      });
+    } else {
+      // Local mode
+      const evs = results.evs;
+      if (!evs) return;
+      const best = [...evs].sort((a, b) => b.ev - a.ev)[0];
+      recommendation = best.name;
+      bestEV = best.ev;
+      options = state.options.map(o => o.name);
+      outcomes = state.options.reduce((acc, o, i) => {
+        acc[i] = [
+          { description: o.bestDesc, probability: o.bestProb, payoff: o.bestPayoff },
+          { description: o.worstDesc, probability: o.worstProb, payoff: o.worstPayoff },
+        ];
+        return acc;
+      }, {});
+    }
 
     Store.addDecision({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -1154,19 +1364,14 @@
       category: state.category,
       timeHorizon: state.timeHorizon,
       deadline: state.deadline,
-      options: state.options.map(o => o.name),
-      outcomes: state.options.reduce((acc, o, i) => {
-        acc[i] = [
-          { description: o.bestDesc, probability: o.bestProb, payoff: o.bestPayoff },
-          { description: o.worstDesc, probability: o.worstProb, payoff: o.worstPayoff },
-        ];
-        return acc;
-      }, {}),
-      recommendation: best.name,
-      bestEV: best.ev,
+      options,
+      outcomes,
+      recommendation,
+      bestEV,
       biases: { ...state.biases },
       timestamp: Date.now(),
       outcomeLogged: false,
+      mode: results.mode || 'local',
     });
     state.currentDecisionId = Store._data.decisions[0].id;
     alert('Decision saved.');

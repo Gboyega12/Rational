@@ -257,7 +257,95 @@ body {
   line-height: 1.5;
 }
 
-/* ---- Progress Bar ---- */
+/* ---- Step Nav Right ---- */
+.step-nav-right { display: flex; gap: var(--space-3); }
+
+/* ---- AI Loading ---- */
+.ai-loading {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center;
+  padding: var(--space-20) 0;
+  animation: fadeUp var(--dur-slow) var(--spring);
+}
+.loading-rings {
+  position: relative; width: 100px; height: 100px;
+  margin-bottom: var(--space-8);
+}
+.loading-ring {
+  position: absolute; border-radius: 50%;
+  border: 1px solid var(--white-10);
+  animation: loadSpin 3s linear infinite;
+}
+.loading-ring.r1 { inset: 0; animation-duration: 4s; }
+.loading-ring.r2 { inset: 15px; border-color: var(--white-20); animation-duration: 3s; animation-direction: reverse; }
+.loading-ring.r3 { inset: 30px; border-color: var(--red); animation-duration: 2s; box-shadow: 0 0 12px var(--red-dim); }
+.loading-dot {
+  position: absolute; top: 50%; left: 50%; width: 10px; height: 10px;
+  margin: -5px 0 0 -5px; border-radius: 50%; background: var(--red);
+  box-shadow: 0 0 20px var(--red-glow);
+  animation: dotPulse 1.5s ease-in-out infinite;
+}
+@keyframes loadSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes dotPulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.4); opacity: 1; } }
+
+.loading-text { font-size: var(--text-lg); font-weight: 600; color: var(--white); margin-bottom: var(--space-2); }
+.loading-sub { font-size: var(--text-sm); color: var(--gray-3); }
+
+/* AI mode badge */
+.ai-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--red); background: var(--red-dim);
+  padding: 3px 8px; border-radius: 3px; margin-left: 8px;
+}
+
+/* Bullet lists in AI narrative */
+.narrative ul { list-style: none; margin: var(--space-3) 0; padding: 0; }
+.narrative ul li {
+  position: relative; padding-left: 16px; margin-bottom: 6px;
+  font-size: var(--text-sm); line-height: 1.6;
+}
+.narrative ul li::before {
+  content: ''; position: absolute; left: 0; top: 9px;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--red);
+}
+
+/* Option sub-sections in AI EV */
+.ev-option-block {
+  padding: var(--space-5); background: var(--dark-2);
+  border-radius: var(--radius-md); border-left: 2px solid var(--red);
+  margin-bottom: var(--space-4);
+}
+.ev-option-block h4 {
+  font-size: var(--text-base); font-weight: 600; color: var(--white);
+  margin-bottom: var(--space-3);
+}
+.ev-option-block .ev-calc {
+  font-family: var(--font-mono); font-size: var(--text-sm);
+  color: var(--red); margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3); background: var(--red-dim);
+  border-radius: var(--radius-sm); display: inline-block;
+}
+
+/* Kelly recommendations */
+.kelly-rec {
+  display: flex; gap: var(--space-3); align-items: flex-start;
+  padding: var(--space-4); background: var(--dark-2);
+  border-radius: var(--radius-md); margin-bottom: var(--space-3);
+}
+.kelly-action {
+  font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 3px 8px; border-radius: 3px;
+  flex-shrink: 0; min-width: 70px; text-align: center;
+}
+.kelly-action.stop { background: var(--red-dim); color: var(--red); }
+.kelly-action.reduce { background: var(--orange-dim); color: var(--orange); }
+.kelly-action.double { background: var(--green-dim); color: var(--green); }
+.kelly-rec-body { font-size: var(--text-sm); color: var(--white-60); line-height: 1.5; }
+.kelly-rec-body strong { color: var(--white); }
+
+/* Progress Bar ---- */
 .progress-bar {
   position: relative; height: 3px;
   background: var(--white-05);
