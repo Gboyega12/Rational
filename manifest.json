@@ -7,7 +7,7 @@
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "any",
-  "categories": ["productivity", "utilities", "education", "social"],
+  "categories": ["productivity", "utilities", "education", "social", "games"],
   "icons": [
     { "src": "icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
@@ -27,6 +27,12 @@
       "short_name": "Decide",
       "url": "/?action=new",
       "description": "Get a clear answer to any decision"
+    },
+    {
+      "name": "Spin the Wheel",
+      "short_name": "Spin",
+      "url": "/?action=spin",
+      "description": "Random question game — best answer wins"
     },
     {
       "name": "History",

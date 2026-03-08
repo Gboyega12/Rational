@@ -2750,6 +2750,447 @@
     }
   });
 
+  // ================================================================
+  // SPIN THE WHEEL — Game mode
+  // ================================================================
+  const spinState = {
+    gameCode: null,
+    participantId: null,
+    pollInterval: null,
+    vibe: 'random',
+    wheelSegments: 8,
+    currentRotation: 0,
+  };
+
+  // Vibe picker
+  const spinVibeOptions = $('#spin-vibe-options');
+  if (spinVibeOptions) {
+    spinVibeOptions.addEventListener('click', (e) => {
+      const chip = e.target.closest('.personality-chip');
+      if (!chip) return;
+      spinVibeOptions.querySelectorAll('.personality-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      spinState.vibe = chip.dataset.vibe;
+    });
+  }
+
+  // Entry point
+  const spinEntryBtn = $('#spin-entry-btn');
+  if (spinEntryBtn) {
+    spinEntryBtn.addEventListener('click', () => {
+      showScreen('spin');
+      resetSpinLobby();
+    });
+  }
+
+  $('#spin-back').addEventListener('click', () => {
+    stopSpinPolling();
+    showScreen('home');
+    initHome();
+  });
+
+  function resetSpinLobby() {
+    $('#spin-lobby').hidden = false;
+    $('#spin-room').hidden = true;
+    $('#spin-results').hidden = true;
+    $('#spin-create-fields').hidden = true;
+    $('#spin-join-fields').hidden = true;
+    $('#spin-error').hidden = true;
+    spinState.gameCode = null;
+    spinState.participantId = null;
+    stopSpinPolling();
+  }
+
+  function showSpinError(msg) {
+    const el = $('#spin-error');
+    if (msg) { el.textContent = msg; el.hidden = false; }
+    else el.hidden = true;
+  }
+
+  // Toggle create/join
+  $('#spin-create-card').addEventListener('click', (e) => {
+    if (e.target.closest('input, button')) return;
+    const fields = $('#spin-create-fields');
+    fields.hidden = !fields.hidden;
+    if (!fields.hidden) {
+      $('#spin-join-fields').hidden = true;
+      $('#spin-creator-name').focus();
+    }
+  });
+
+  $('#spin-join-card').addEventListener('click', (e) => {
+    if (e.target.closest('input, button')) return;
+    const fields = $('#spin-join-fields');
+    fields.hidden = !fields.hidden;
+    if (!fields.hidden) {
+      $('#spin-create-fields').hidden = true;
+      $('#spin-join-code').focus();
+    }
+  });
+
+  // CREATE game
+  $('#spin-create-btn').addEventListener('click', async () => {
+    const name = $('#spin-creator-name').value.trim() || 'Player 1';
+    showSpinError('');
+    $('#spin-create-btn').disabled = true;
+    $('#spin-create-btn').textContent = 'Creating...';
+
+    try {
+      const res = await fetch('/api/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', creatorName: name, vibe: spinState.vibe }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create game');
+
+      spinState.gameCode = data.game.code;
+      spinState.participantId = data.participantId;
+      enterSpinRoom(data.game);
+    } catch (err) {
+      showSpinError(err.message);
+    } finally {
+      $('#spin-create-btn').disabled = false;
+      $('#spin-create-btn').textContent = 'Create game';
+    }
+  });
+
+  // JOIN game
+  $('#spin-join-btn').addEventListener('click', async () => {
+    const code = $('#spin-join-code').value.trim().toUpperCase();
+    const name = $('#spin-join-name').value.trim() || '';
+    if (code.length !== 6) return showSpinError('Enter a 6-letter game code.');
+
+    showSpinError('');
+    $('#spin-join-btn').disabled = true;
+    $('#spin-join-btn').textContent = 'Joining...';
+
+    try {
+      const res = await fetch('/api/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'join', code, name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to join');
+
+      spinState.gameCode = data.game.code;
+      spinState.participantId = data.participantId;
+      enterSpinRoom(data.game);
+    } catch (err) {
+      showSpinError(err.message);
+    } finally {
+      $('#spin-join-btn').disabled = false;
+      $('#spin-join-btn').textContent = 'Join';
+    }
+  });
+
+  function enterSpinRoom(game) {
+    $('#spin-lobby').hidden = true;
+    $('#spin-room').hidden = false;
+    $('#spin-results').hidden = true;
+
+    const vibeLabels = { random: '🎲 Random', 'pop-culture': '🎬 Pop culture', 'deep-thinks': '🧠 Deep thinks', 'hot-takes': '🌶️ Hot takes' };
+    $('#spin-vibe-badge').textContent = vibeLabels[game.vibe] || vibeLabels.random;
+    $('#spin-room-code').textContent = game.code;
+
+    buildWheel(game);
+    updateSpinParticipants(game);
+    updateSpinUI(game);
+    startSpinPolling();
+  }
+
+  function updateSpinParticipants(game) {
+    const container = $('#spin-participants');
+    container.innerHTML = game.participants.map(p => {
+      const isMe = p.id === spinState.participantId;
+      return `<span class="participant-chip${isMe ? ' is-me' : ''}${p.hasAnswer ? ' has-arg' : ''}">
+        ${escapeHtml(p.name)}${p.score ? ` (${p.score}pts)` : ''}
+      </span>`;
+    }).join('');
+  }
+
+  function updateSpinUI(game) {
+    const wheelArea = $('#spin-wheel-area');
+    const questionArea = $('#spin-question-area');
+    const answerInput = $('#spin-answer-input');
+    const answerDone = $('#spin-answer-done');
+    const waitingEl = $('#spin-waiting');
+    const judgeBtn = $('#spin-judge-btn');
+    const goBtn = $('#spin-go-btn');
+
+    if (game.status === 'waiting') {
+      wheelArea.hidden = false;
+      questionArea.hidden = true;
+      goBtn.hidden = false;
+      goBtn.disabled = game.participants.length < 2;
+      goBtn.textContent = game.participants.length < 2 ? 'Waiting for players...' : 'Spin it!';
+    } else if (game.status === 'answering') {
+      wheelArea.hidden = true;
+      questionArea.hidden = false;
+      $('#spin-question-text').textContent = game.question;
+
+      const me = game.participants.find(p => p.id === spinState.participantId);
+      if (me && me.hasAnswer) {
+        answerInput.hidden = true;
+        answerDone.hidden = false;
+      } else {
+        answerInput.hidden = false;
+        answerDone.hidden = true;
+      }
+
+      const withAnswers = game.participants.filter(p => p.hasAnswer).length;
+      const total = game.participants.length;
+      waitingEl.hidden = withAnswers >= total;
+      waitingEl.querySelector('p').textContent = `${withAnswers}/${total} answered...`;
+
+      // Show judge button for creator if 2+ answers
+      const isCreator = game.participants[0]?.id === spinState.participantId;
+      judgeBtn.hidden = !(isCreator && withAnswers >= 2);
+    } else if (game.status === 'judging') {
+      wheelArea.hidden = true;
+      questionArea.hidden = false;
+      answerInput.hidden = true;
+      answerDone.hidden = true;
+      judgeBtn.hidden = true;
+      waitingEl.hidden = false;
+      waitingEl.querySelector('p').textContent = 'AI is judging the answers...';
+    } else if (game.status === 'judged' && game.result) {
+      renderSpinResults(game);
+    }
+  }
+
+  // Build the wheel SVG
+  function buildWheel(game) {
+    const svg = $('#wheel-svg');
+    const segments = spinState.wheelSegments;
+    const colors = [
+      'rgba(215,25,33,0.7)', 'rgba(168,85,247,0.7)',
+      'rgba(68,138,255,0.7)', 'rgba(0,230,118,0.7)',
+      'rgba(255,145,0,0.7)', 'rgba(215,25,33,0.5)',
+      'rgba(168,85,247,0.5)', 'rgba(68,138,255,0.5)',
+    ];
+    const labels = ['?', '!', '???', '!!', '?!', '!!?', '?', '!'];
+    const cx = 150, cy = 150, r = 140;
+    let html = '';
+
+    for (let i = 0; i < segments; i++) {
+      const startAngle = (i * 360 / segments - 90) * Math.PI / 180;
+      const endAngle = ((i + 1) * 360 / segments - 90) * Math.PI / 180;
+      const x1 = cx + r * Math.cos(startAngle);
+      const y1 = cy + r * Math.sin(startAngle);
+      const x2 = cx + r * Math.cos(endAngle);
+      const y2 = cy + r * Math.sin(endAngle);
+      const largeArc = (360 / segments > 180) ? 1 : 0;
+
+      html += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z" fill="${colors[i % colors.length]}" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>`;
+
+      // Label
+      const midAngle = ((i + 0.5) * 360 / segments - 90) * Math.PI / 180;
+      const lx = cx + (r * 0.65) * Math.cos(midAngle);
+      const ly = cy + (r * 0.65) * Math.sin(midAngle);
+      html += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central" fill="white" font-size="18" font-weight="700" opacity="0.7">${labels[i]}</text>`;
+    }
+
+    // Center circle
+    html += `<circle cx="${cx}" cy="${cy}" r="22" fill="#111" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>`;
+
+    svg.innerHTML = html;
+  }
+
+  // SPIN action
+  $('#spin-go-btn').addEventListener('click', async () => {
+    const goBtn = $('#spin-go-btn');
+    goBtn.disabled = true;
+    goBtn.textContent = 'Spinning...';
+
+    // Animate the wheel
+    const svg = $('#wheel-svg');
+    const extraSpins = 5 + Math.floor(Math.random() * 5);
+    const landAngle = Math.floor(Math.random() * 360);
+    const totalRotation = spinState.currentRotation + (extraSpins * 360) + landAngle;
+    spinState.currentRotation = totalRotation;
+
+    svg.classList.add('spinning');
+    svg.style.transform = `rotate(${totalRotation}deg)`;
+
+    // Wait for animation, then call API
+    setTimeout(async () => {
+      try {
+        const res = await fetch('/api/spin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'spin', code: spinState.gameCode }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Spin failed');
+
+        updateSpinUI(data.game);
+        updateSpinParticipants(data.game);
+      } catch (err) {
+        showSpinError(err.message);
+      } finally {
+        goBtn.disabled = false;
+        goBtn.textContent = 'Spin it!';
+      }
+    }, 4200);
+  });
+
+  // Copy game code
+  $('#spin-copy-btn').addEventListener('click', () => {
+    const code = $('#spin-room-code').textContent;
+    if (navigator.clipboard) navigator.clipboard.writeText(code);
+  });
+
+  // Voice input for spin answers
+  const spinMicBtn = $('#spin-mic-btn');
+  const spinVoice = createVoiceInput({
+    micBtn: spinMicBtn,
+    micHint: $('#spin-mic-hint'),
+    micRing: $('#spin-mic-ring'),
+    canvas: $('#spin-voice-waveform'),
+    targetEl: $('#spin-answer-textarea'),
+    hintText: 'Tap to speak your answer',
+    listeningText: 'Listening...',
+    onUpdate: () => {},
+  });
+  if (!spinVoice && spinMicBtn) {
+    spinMicBtn.style.display = 'none';
+    const hint = $('#spin-mic-hint');
+    if (hint) hint.style.display = 'none';
+  }
+
+  // Submit answer
+  $('#spin-submit-answer').addEventListener('click', async () => {
+    const answer = $('#spin-answer-textarea').value.trim();
+    if (answer.length < 2) return;
+
+    $('#spin-submit-answer').disabled = true;
+    $('#spin-submit-answer').textContent = 'Submitting...';
+
+    try {
+      const res = await fetch('/api/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'answer', code: spinState.gameCode, participantId: spinState.participantId, answer }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Submit failed');
+
+      $('#spin-answer-input').hidden = true;
+      $('#spin-answer-done').hidden = false;
+      $('#spin-submitted-text').textContent = answer;
+      updateSpinParticipants(data.game);
+      updateSpinUI(data.game);
+    } catch (err) {
+      showSpinError(err.message);
+    } finally {
+      $('#spin-submit-answer').disabled = false;
+      $('#spin-submit-answer').textContent = 'Lock in answer';
+    }
+  });
+
+  // Judge answers
+  $('#spin-judge-btn').addEventListener('click', async () => {
+    $('#spin-judge-btn').disabled = true;
+    $('#spin-judge-btn').querySelector('span').textContent = 'Judging...';
+
+    try {
+      const res = await fetch('/api/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'judge', code: spinState.gameCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Judging failed');
+
+      renderSpinResults(data.game);
+    } catch (err) {
+      showSpinError(err.message);
+    } finally {
+      $('#spin-judge-btn').disabled = false;
+      $('#spin-judge-btn').querySelector('span').textContent = 'Judge the answers';
+    }
+  });
+
+  function renderSpinResults(game) {
+    stopSpinPolling();
+    const r = game.result;
+    if (!r) return;
+
+    $('#spin-room').hidden = true;
+    $('#spin-results').hidden = false;
+
+    $('#spin-winner-name').textContent = r.winner || 'No winner';
+    $('#spin-winner-reason').textContent = r.winner_reason || '';
+
+    const rankingsEl = $('#spin-rankings');
+    rankingsEl.innerHTML = '';
+    if (r.rankings && r.rankings.length > 0) {
+      r.rankings.forEach((rank, i) => {
+        const p = game.participants.find(pp => pp.name === rank.name);
+        const el = document.createElement('div');
+        el.className = `spin-ranking-card${i === 0 ? ' winner' : ''} reveal-section`;
+        el.style.animationDelay = `${i * 100}ms`;
+        el.innerHTML = `
+          <div class="spin-rank-header">
+            <span class="spin-rank-num">#${rank.rank || i + 1}</span>
+            <span class="spin-rank-name">${escapeHtml(rank.name)}</span>
+          </div>
+          <p class="spin-rank-answer">"${escapeHtml(p?.answer || '')}"</p>
+          <p class="spin-rank-reason">${escapeHtml(rank.comment)}</p>`;
+        rankingsEl.appendChild(el);
+      });
+    }
+
+    if (r.fun_fact) {
+      $('#spin-fun-fact').hidden = false;
+      $('#spin-fun-fact-text').textContent = r.fun_fact;
+    }
+
+    setTimeout(observeRevealSections, 100);
+  }
+
+  // Spin again (new round, same game)
+  $('#spin-again-btn').addEventListener('click', () => {
+    $('#spin-results').hidden = true;
+    $('#spin-room').hidden = false;
+    $('#spin-answer-textarea').value = '';
+    $('#spin-answer-input').hidden = false;
+    $('#spin-answer-done').hidden = true;
+    $('#spin-question-area').hidden = true;
+    $('#spin-wheel-area').hidden = false;
+    $('#spin-fun-fact').hidden = true;
+    startSpinPolling();
+  });
+
+  // New game
+  $('#spin-new-game-btn').addEventListener('click', () => {
+    resetSpinLobby();
+  });
+
+  // Polling
+  function startSpinPolling() {
+    stopSpinPolling();
+    spinState.pollInterval = setInterval(async () => {
+      if (!spinState.gameCode) return;
+      try {
+        const res = await fetch(`/api/spin?code=${spinState.gameCode}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        updateSpinParticipants(data.game);
+        updateSpinUI(data.game);
+      } catch {}
+    }, 3000);
+  }
+
+  function stopSpinPolling() {
+    if (spinState.pollInterval) {
+      clearInterval(spinState.pollInterval);
+      spinState.pollInterval = null;
+    }
+  }
+
   // URL shortcuts
   const urlParams = new URLSearchParams(window.location.search);
   const urlAction = urlParams.get('action');
@@ -2766,6 +3207,10 @@
   } else if (urlAction === 'debate') {
     showScreen('debate');
     resetDebateLobby();
+    window.history.replaceState({}, '', '/');
+  } else if (urlAction === 'spin') {
+    showScreen('spin');
+    resetSpinLobby();
     window.history.replaceState({}, '', '/');
   } else if (urlAction === 'new') {
     showScreen('decide-input');

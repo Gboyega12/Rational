@@ -41,21 +41,41 @@
         <!-- Dynamic greeting -->
         <div class="greeting" id="greeting-area">
           <h1 id="home-heading">What's on your mind?</h1>
-          <p id="greeting-sub">Two tools. One brain. Zero BS.</p>
+          <p id="greeting-sub">Three modes. One brain. Zero BS.</p>
         </div>
 
-        <!-- Two doors -->
+        <!-- Ambient floating dots -->
+        <div class="ambient-dots" aria-hidden="true">
+          <span class="amb-dot amb-dot-1"></span>
+          <span class="amb-dot amb-dot-2"></span>
+          <span class="amb-dot amb-dot-3"></span>
+          <span class="amb-dot amb-dot-4"></span>
+          <span class="amb-dot amb-dot-5"></span>
+          <span class="amb-dot amb-dot-6"></span>
+        </div>
+
+        <!-- Three doors -->
         <div class="home-doors">
 
           <!-- Door 1: Settle an argument -->
           <button type="button" class="home-door door-debate" id="debate-entry-btn">
             <div class="door-glyph">
-              <svg class="glyph-icon glyph-debate" viewBox="0 0 48 48" fill="none">
-                <path d="M8 12h20v16H14l-6 6v-6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-                <path d="M20 8h20v16H26l-6 6v-6" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.4"/>
-                <circle cx="15" cy="20" r="1.5" fill="currentColor" class="glyph-dot glyph-dot-1"/>
-                <circle cx="21" cy="20" r="1.5" fill="currentColor" class="glyph-dot glyph-dot-2"/>
-                <circle cx="27" cy="16" r="1.5" fill="currentColor" class="glyph-dot glyph-dot-3" opacity="0.4"/>
+              <svg class="glyph-icon glyph-debate" viewBox="0 0 56 56" fill="none">
+                <!-- Chat bubbles -->
+                <path d="M6 14h22v14H16l-6 5v-5H6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                <path d="M28 10h22v14H38l-6 5v-5h-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" opacity="0.5"/>
+                <!-- Typing dots -->
+                <circle cx="13" cy="21" r="1.5" fill="currentColor" class="glyph-dot glyph-dot-1"/>
+                <circle cx="18" cy="21" r="1.5" fill="currentColor" class="glyph-dot glyph-dot-2"/>
+                <circle cx="23" cy="21" r="1.5" fill="currentColor" class="glyph-dot glyph-dot-3"/>
+                <!-- Floating particles -->
+                <circle cx="35" cy="17" r="1.2" fill="currentColor" class="glyph-dot glyph-dot-1" opacity="0.5"/>
+                <circle cx="42" cy="17" r="1.2" fill="currentColor" class="glyph-dot glyph-dot-2" opacity="0.5"/>
+                <!-- Lightning bolt (conflict) -->
+                <path d="M27 36l-3 6h5l-3 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" class="glyph-flash" opacity="0.6"/>
+                <!-- Orbit dots -->
+                <circle cx="8" cy="38" r="1" fill="currentColor" class="glyph-orbit glyph-orbit-1" opacity="0.3"/>
+                <circle cx="48" cy="42" r="1" fill="currentColor" class="glyph-orbit glyph-orbit-2" opacity="0.2"/>
               </svg>
             </div>
             <div class="door-text">
@@ -68,18 +88,58 @@
           <!-- Door 2: Personal decision -->
           <button type="button" class="home-door door-decide" id="decide-entry-btn">
             <div class="door-glyph">
-              <svg class="glyph-icon glyph-decide" viewBox="0 0 48 48" fill="none">
-                <circle cx="24" cy="24" r="14" stroke="currentColor" stroke-width="1.5" opacity="0.2"/>
-                <path d="M24 10v14l10 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="24" cy="24" r="3" fill="currentColor" class="glyph-center"/>
-                <circle cx="24" cy="8" r="2" fill="currentColor" class="glyph-orbit glyph-orbit-1" opacity="0.6"/>
-                <circle cx="38" cy="30" r="2" fill="currentColor" class="glyph-orbit glyph-orbit-2" opacity="0.4"/>
-                <circle cx="10" cy="30" r="2" fill="currentColor" class="glyph-orbit glyph-orbit-3" opacity="0.3"/>
+              <svg class="glyph-icon glyph-decide" viewBox="0 0 56 56" fill="none">
+                <!-- Outer ring -->
+                <circle cx="28" cy="28" r="18" stroke="currentColor" stroke-width="1.2" opacity="0.15" stroke-dasharray="3 5"/>
+                <circle cx="28" cy="28" r="12" stroke="currentColor" stroke-width="1.3" opacity="0.3"/>
+                <!-- Clock hand -->
+                <path d="M28 16v12l8 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Center pulse -->
+                <circle cx="28" cy="28" r="3" fill="currentColor" class="glyph-center"/>
+                <!-- Orbiting dots -->
+                <circle cx="28" cy="8" r="2" fill="currentColor" class="glyph-orbit glyph-orbit-1" opacity="0.6"/>
+                <circle cx="46" cy="34" r="2" fill="currentColor" class="glyph-orbit glyph-orbit-2" opacity="0.4"/>
+                <circle cx="10" cy="34" r="2" fill="currentColor" class="glyph-orbit glyph-orbit-3" opacity="0.3"/>
+                <!-- Scattered micro dots -->
+                <circle cx="42" cy="14" r="1" fill="currentColor" class="glyph-dot glyph-dot-1" opacity="0.25"/>
+                <circle cx="14" cy="14" r="1" fill="currentColor" class="glyph-dot glyph-dot-2" opacity="0.2"/>
+                <circle cx="42" cy="44" r="1" fill="currentColor" class="glyph-dot glyph-dot-3" opacity="0.15"/>
               </svg>
             </div>
             <div class="door-text">
               <h2 class="door-title">Make a decision</h2>
               <p class="door-desc">Ask anything. Get a clear answer backed by 12 mental models.</p>
+            </div>
+            <svg class="door-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 10h8M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+
+          <!-- Door 3: Spin the Wheel -->
+          <button type="button" class="home-door door-spin" id="spin-entry-btn">
+            <div class="door-glyph">
+              <svg class="glyph-icon glyph-spin" viewBox="0 0 56 56" fill="none">
+                <!-- Wheel outline -->
+                <circle cx="28" cy="28" r="18" stroke="currentColor" stroke-width="1.3" opacity="0.3"/>
+                <circle cx="28" cy="28" r="18" stroke="currentColor" stroke-width="1.3" stroke-dasharray="14.13" class="glyph-wheel"/>
+                <!-- Spokes -->
+                <line x1="28" y1="10" x2="28" y2="46" stroke="currentColor" stroke-width="0.8" opacity="0.15"/>
+                <line x1="10" y1="28" x2="46" y2="28" stroke="currentColor" stroke-width="0.8" opacity="0.15"/>
+                <line x1="15" y1="15" x2="41" y2="41" stroke="currentColor" stroke-width="0.8" opacity="0.1"/>
+                <line x1="41" y1="15" x2="15" y2="41" stroke="currentColor" stroke-width="0.8" opacity="0.1"/>
+                <!-- Center -->
+                <circle cx="28" cy="28" r="4" fill="currentColor" class="glyph-center" opacity="0.8"/>
+                <!-- Pointer -->
+                <polygon points="28,7 25,13 31,13" fill="currentColor" class="glyph-pointer"/>
+                <!-- Sparkle dots around -->
+                <circle cx="28" cy="5" r="1.2" fill="currentColor" class="glyph-dot glyph-dot-1" opacity="0.5"/>
+                <circle cx="49" cy="28" r="1.2" fill="currentColor" class="glyph-dot glyph-dot-2" opacity="0.4"/>
+                <circle cx="7" cy="28" r="1.2" fill="currentColor" class="glyph-dot glyph-dot-3" opacity="0.35"/>
+                <circle cx="43" cy="43" r="1" fill="currentColor" class="glyph-orbit glyph-orbit-1" opacity="0.2"/>
+                <circle cx="13" cy="43" r="1" fill="currentColor" class="glyph-orbit glyph-orbit-2" opacity="0.15"/>
+              </svg>
+            </div>
+            <div class="door-text">
+              <h2 class="door-title">Spin the wheel</h2>
+              <p class="door-desc">Random question. Best answer wins. Think fast.</p>
             </div>
             <svg class="door-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 10h8M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
@@ -387,6 +447,163 @@
               Share verdict
             </button>
             <button type="button" class="action-btn" id="debate-new-btn">New debate</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====== SPIN — Spin the Wheel game ====== -->
+    <section id="spin" class="screen" aria-labelledby="spin-heading">
+      <div class="container spin-wrap">
+
+        <button type="button" class="back-link" id="spin-back">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back
+        </button>
+
+        <!-- Step 1: Spin Lobby — Create or Join -->
+        <div id="spin-lobby" class="spin-step">
+          <div class="spin-lobby-header">
+            <div class="door-glyph door-glyph-sm">
+              <svg class="glyph-icon glyph-spin" viewBox="0 0 56 56" fill="none">
+                <circle cx="28" cy="28" r="18" stroke="currentColor" stroke-width="1.3" opacity="0.3"/>
+                <circle cx="28" cy="28" r="18" stroke="currentColor" stroke-width="1.3" stroke-dasharray="14.13" class="glyph-wheel"/>
+                <circle cx="28" cy="28" r="4" fill="currentColor" class="glyph-center" opacity="0.8"/>
+                <polygon points="28,7 25,13 31,13" fill="currentColor"/>
+              </svg>
+            </div>
+            <h2 id="spin-heading">Spin the wheel</h2>
+            <p class="spin-sub">Random question drops. Everyone answers. Best take wins.</p>
+          </div>
+
+          <div class="spin-choices">
+            <div class="debate-choice-card" id="spin-create-card">
+              <h3>Start a game</h3>
+              <p>Pick a vibe, invite your crew.</p>
+              <div class="field" id="spin-create-fields" hidden>
+                <input id="spin-creator-name" class="input" type="text" placeholder="Your name" maxlength="30">
+                <div class="personality-picker">
+                  <label class="personality-label">Question vibe</label>
+                  <div class="personality-options" id="spin-vibe-options">
+                    <button type="button" class="personality-chip selected" data-vibe="random">
+                      <span class="personality-emoji">🎲</span>
+                      <span class="personality-name">Random</span>
+                    </button>
+                    <button type="button" class="personality-chip" data-vibe="pop-culture">
+                      <span class="personality-emoji">🎬</span>
+                      <span class="personality-name">Pop culture</span>
+                    </button>
+                    <button type="button" class="personality-chip" data-vibe="deep-thinks">
+                      <span class="personality-emoji">🧠</span>
+                      <span class="personality-name">Deep thinks</span>
+                    </button>
+                    <button type="button" class="personality-chip" data-vibe="hot-takes">
+                      <span class="personality-emoji">🌶️</span>
+                      <span class="personality-name">Hot takes</span>
+                    </button>
+                  </div>
+                </div>
+                <button type="button" class="btn-primary-full" id="spin-create-btn">Create game</button>
+              </div>
+            </div>
+
+            <div class="debate-choice-card" id="spin-join-card">
+              <h3>Join a game</h3>
+              <p>Got a code? Jump in.</p>
+              <div class="field" id="spin-join-fields" hidden>
+                <input id="spin-join-code" class="input" type="text" placeholder="Game code (e.g. ABC123)" maxlength="6" style="text-transform:uppercase;letter-spacing:0.2em;text-align:center;font-weight:700">
+                <input id="spin-join-name" class="input" type="text" placeholder="Your name" maxlength="30">
+                <button type="button" class="btn-primary-full" id="spin-join-btn">Join</button>
+              </div>
+            </div>
+          </div>
+          <p class="debate-error" id="spin-error" hidden></p>
+        </div>
+
+        <!-- Step 2: Game Room — Waiting + Wheel -->
+        <div id="spin-room" class="spin-step" hidden>
+          <div class="spin-room-header">
+            <span class="spin-vibe-badge" id="spin-vibe-badge"></span>
+            <div class="debate-room-code-wrap">
+              <span class="debate-room-code-label">Game code</span>
+              <span class="debate-room-code" id="spin-room-code"></span>
+              <button type="button" class="debate-copy-btn" id="spin-copy-btn" aria-label="Copy game code">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 11V3h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="spin-participants" id="spin-participants"></div>
+
+          <!-- The Wheel -->
+          <div class="spin-wheel-area" id="spin-wheel-area">
+            <div class="spin-wheel-pointer">▼</div>
+            <div class="spin-wheel" id="spin-wheel">
+              <svg viewBox="0 0 300 300" class="wheel-svg" id="wheel-svg"></svg>
+              <div class="wheel-center-label">SPIN</div>
+            </div>
+            <button type="button" class="btn-primary-full spin-go-btn" id="spin-go-btn">Spin it!</button>
+          </div>
+
+          <!-- Question reveal -->
+          <div class="spin-question-area" id="spin-question-area" hidden>
+            <div class="spin-question-card">
+              <p class="spin-question-label">The question is...</p>
+              <h3 id="spin-question-text" class="spin-question-text"></h3>
+            </div>
+
+            <div class="spin-answer-input" id="spin-answer-input">
+              <h4>Your answer</h4>
+              <button type="button" class="mic-btn debate-mic-btn" id="spin-mic-btn" aria-label="Speak your answer">
+                <div class="mic-ring" id="spin-mic-ring"></div>
+                <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M5 12a7 7 0 0014 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 19v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <svg class="mic-stop" width="24" height="24" viewBox="0 0 24 24" fill="none" style="display:none"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>
+                <canvas id="spin-voice-waveform" class="mic-waveform" width="120" height="32"></canvas>
+              </button>
+              <p class="mic-hint" id="spin-mic-hint">Tap to speak your answer</p>
+              <textarea id="spin-answer-textarea" class="journal-input" rows="3" placeholder="Type your answer..." maxlength="1000"></textarea>
+              <button type="button" class="btn-primary-full" id="spin-submit-answer">Lock in answer</button>
+            </div>
+
+            <div class="spin-answer-done" id="spin-answer-done" hidden>
+              <p class="debate-submitted-label">Your answer (locked in)</p>
+              <p class="debate-submitted-text" id="spin-submitted-text"></p>
+            </div>
+
+            <div class="debate-waiting" id="spin-waiting" hidden>
+              <p>Waiting for others to answer...</p>
+              <div class="thinking-ring r1" style="width:32px;height:32px;margin:var(--space-4) auto"></div>
+            </div>
+
+            <button type="button" class="btn-primary-full spin-judge-btn" id="spin-judge-btn" hidden>
+              <span>Judge the answers</span>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M11 5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 3: Results -->
+        <div id="spin-results" class="spin-step" hidden>
+          <div class="spin-results-hero">
+            <p class="answer-label">And the winner is...</p>
+            <h2 id="spin-winner-name" class="answer-title"></h2>
+            <p id="spin-winner-reason" class="answer-sub"></p>
+          </div>
+
+          <div class="why-section">
+            <p class="why-label">All answers ranked</p>
+            <div id="spin-rankings"></div>
+          </div>
+
+          <div id="spin-fun-fact" class="spin-fun-fact" hidden>
+            <h3>Fun fact</h3>
+            <p id="spin-fun-fact-text"></p>
+          </div>
+
+          <div class="answer-actions">
+            <button type="button" class="action-btn" id="spin-again-btn">Spin again</button>
+            <button type="button" class="action-btn" id="spin-new-game-btn">New game</button>
           </div>
         </div>
 

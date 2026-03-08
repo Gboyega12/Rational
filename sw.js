@@ -3,7 +3,7 @@
    Cache-first for app shell, network-first for dynamic content
    ============================================================ */
 
-const CACHE_NAME = 'rational-v3';
+const CACHE_NAME = 'rational-v4';
 const APP_SHELL = [
   '/',
   '/index.html',
