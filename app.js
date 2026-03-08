@@ -846,54 +846,44 @@
     $('#answer-heading').innerHTML = escapeHtml(ai.verdict?.title || 'Analysis complete');
     $('#answer-subtitle').textContent = ai.verdict?.subtitle || '';
 
-    // Build the why-section from AI's chosen frameworks
-    const whySection = $('.why-section .why-cards') || $('.why-section');
-    const cardsContainer = document.createElement('div');
-
-    // Clear all existing why-cards
-    $$('.why-card').forEach(card => card.remove());
+    // Build flowing narrative into #analysis-content
+    const container = $('#analysis-content');
+    container.innerHTML = '';
 
     if (ai.sections && ai.sections.length > 0) {
-      // AI picked the relevant frameworks — render only those
       ai.sections.forEach((section, i) => {
-        const card = document.createElement('details');
-        card.className = 'why-card reveal-section';
-        // Auto-open first 3 sections
-        if (i < 3) card.open = true;
-
-        card.innerHTML = `
-          <summary>
+        const sectionEl = document.createElement('div');
+        sectionEl.className = 'analysis-section reveal-section';
+        sectionEl.innerHTML = `
+          <h3 class="analysis-section-title">
             <span class="why-num">${String(i + 1).padStart(2, '0')}</span>
-            <span>${escapeHtml(section.title)}</span>
-            <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </summary>
-          <div class="why-body">
-            <div class="narrative">${formatAIContent(section.content)}</div>
-          </div>`;
-
-        const insertPoint = $('#personal-section') || $('#expiry-banner');
-        insertPoint.parentElement.insertBefore(card, insertPoint);
+            ${escapeHtml(section.title)}
+          </h3>
+          <div class="narrative">${formatAIContent(section.content)}</div>`;
+        container.appendChild(sectionEl);
       });
     }
 
-    // Verdict detail
+    // Verdict detail — the full recommendation
     if (ai.verdict_detail) {
-      let verdictHtml = '<div class="narrative">';
+      const verdictEl = document.createElement('div');
+      verdictEl.className = 'analysis-section analysis-verdict reveal-section';
+      let verdictHtml = '<h3 class="analysis-section-title">The bottom line</h3><div class="narrative">';
       if (ai.verdict_detail.recommendation) {
         verdictHtml += formatAIContent(ai.verdict_detail.recommendation);
       }
       if (ai.verdict_detail.next_step) {
-        verdictHtml += `<span class="callout"><strong>Next 30 days:</strong> ${escapeHtml(ai.verdict_detail.next_step)}</span>`;
+        verdictHtml += `<div class="callout"><strong>Next 30 days:</strong> ${escapeHtml(ai.verdict_detail.next_step)}</div>`;
       }
       if (ai.verdict_detail.hidden_insight) {
-        verdictHtml += `<span class="callout">${escapeHtml(ai.verdict_detail.hidden_insight)}</span>`;
+        verdictHtml += `<div class="callout">${escapeHtml(ai.verdict_detail.hidden_insight)}</div>`;
       }
       verdictHtml += '</div>';
-      $('#final-verdict').innerHTML = verdictHtml;
-      $('#personal-section').hidden = false;
+      verdictEl.innerHTML = verdictHtml;
+      container.appendChild(verdictEl);
     }
 
-    // AI-generated follow-up questions — store for possible re-analysis
+    // AI-generated follow-up questions
     if (ai.followup_questions && ai.followup_questions.length > 0) {
       state._aiFollowups = ai.followup_questions;
       renderAIFollowups(ai.followup_questions);
@@ -1002,7 +992,7 @@
     return 'satisfaction';
   }
 
-  function runAnalysis() {
+  function runLocalAnalysis() {
     const evs = calculateEV();
     const bayesResults = calculateBayes(evs);
     const kellyResults = isDailyDecision() ? null : calculateKelly(evs);
@@ -1013,754 +1003,215 @@
     const best = sorted[0];
     const second = sorted[1];
     const evGap = sorted.length > 1 ? best.ev - second.ev : 0;
+    const daily = isDailyDecision();
+    const unit = daily ? getDailyUnit() : '';
 
     // Verdict hero
     if (evGap > 0) {
-      if (isDailyDecision()) {
-        const unit = getDailyUnit();
-        $('#answer-heading').textContent = `Go with "${best.name}"`;
-        $('#answer-subtitle').textContent = `It scores ${formatValue(best.ev)} on ${unit} — ${formatValue(evGap)} higher than the alternative.`;
-      } else {
-        $('#answer-heading').textContent = `Go with "${best.name}"`;
-        $('#answer-subtitle').textContent = `The numbers give it an edge of ${formatNumber(evGap)} over your next best option.`;
-      }
+      $('#answer-heading').textContent = `Go with "${best.name}"`;
+      $('#answer-subtitle').textContent = daily
+        ? `It scores ${formatValue(best.ev)} on ${unit} — ${formatValue(evGap)} higher than the alternative.`
+        : `The numbers give it an edge of ${formatNumber(evGap)} over your next best option.`;
     } else {
-      if (isDailyDecision()) {
-        $('#answer-heading').textContent = 'Both are solid picks';
-        $('#answer-subtitle').textContent = 'They score about the same — go with your gut on this one.';
-      } else {
-        $('#answer-heading').textContent = 'Too close to call on numbers alone';
-        $('#answer-subtitle').textContent = 'Consider what matters most beyond the math — timing, energy, optionality.';
-      }
+      $('#answer-heading').textContent = daily ? 'Both are solid picks' : 'Too close to call on numbers alone';
+      $('#answer-subtitle').textContent = daily
+        ? 'They score about the same — go with your gut on this one.'
+        : 'Consider what matters most beyond the math — timing, energy, optionality.';
     }
 
-    renderEV(evs, best);
-    renderBaseRate(evs, best);
-    renderSunkCost(evs, best);
-    renderBayes(evs, bayesResults, best);
-    renderSurvivorship();
-    if (!isDailyDecision()) renderKelly(kellyResults, evs);
-    else { $('#kelly-narrative').innerHTML = '<p>For a daily decision, sizing doesn\'t apply — just commit and enjoy it.</p>'; $('#kelly-visual').innerHTML = ''; }
-    renderSensitivity(evs);
-    renderOpportunityCost(evs, best, second);
-    renderRegretMinimization(evs, best, second);
-    renderReversibility(evs, best, second);
-    renderOptionality(evs, best, second);
-    renderPreMortem(evs, best);
-    renderFinalVerdict(evs, best, second, bayesResults, kellyResults);
-    renderExpiryBanner();
-    renderPersonalBiasProfile();
-  }
+    // Build flowing sections into #analysis-content
+    const container = $('#analysis-content');
+    container.innerHTML = '';
+    const sections = [];
 
-  // --- Section 1: Expected Value ---
-  function renderEV(evs, best) {
-    const daily = isDailyDecision();
-    const unit = daily ? getDailyUnit() : '';
-    let html = '';
-
+    // --- Expected Value ---
+    let evHtml = '';
     evs.forEach(opt => {
-      html += `<p><strong>${escapeHtml(opt.name)}:</strong> `;
+      evHtml += `<p><strong>${escapeHtml(opt.name)}:</strong> `;
       if (daily) {
-        html += `If it goes well (${escapeHtml(opt.bestDesc)}, ~${Math.round(opt.bestProb * 100)}% chance), ${unit} score: ${formatValue(opt.bestPayoff)}. `;
-        html += `If it doesn't land (${escapeHtml(opt.worstDesc)}, ~${Math.round(opt.worstProb * 100)}% chance), score: ${formatValue(opt.worstPayoff)}. `;
-        html += `Weighted score: <em>${formatValue(opt.ev)}</em>.</p>`;
+        evHtml += `If it goes well (${escapeHtml(opt.bestDesc)}, ~${Math.round(opt.bestProb * 100)}% chance), ${unit} score: ${formatValue(opt.bestPayoff)}. `;
+        evHtml += `If it doesn't land (${escapeHtml(opt.worstDesc)}, ~${Math.round(opt.worstProb * 100)}% chance), score: ${formatValue(opt.worstPayoff)}. `;
+        evHtml += `Weighted score: <em>${formatValue(opt.ev)}</em>.</p>`;
       } else {
-        html += `If things go well (${escapeHtml(opt.bestDesc)}, ~${Math.round(opt.bestProb * 100)}% chance), the value is ${formatNumber(opt.bestPayoff)}. `;
-        html += `If things go badly (${escapeHtml(opt.worstDesc)}, ~${Math.round(opt.worstProb * 100)}% chance), it's ${formatNumber(opt.worstPayoff)}. `;
-        html += `Weighted together: <em>${formatNumber(opt.ev)}</em>.</p>`;
+        evHtml += `If things go well (${escapeHtml(opt.bestDesc)}, ~${Math.round(opt.bestProb * 100)}% chance), the value is ${formatNumber(opt.bestPayoff)}. `;
+        evHtml += `If things go badly (${escapeHtml(opt.worstDesc)}, ~${Math.round(opt.worstProb * 100)}% chance), it's ${formatNumber(opt.worstPayoff)}. `;
+        evHtml += `Weighted together: <em>${formatNumber(opt.ev)}</em>.</p>`;
       }
     });
-
     if (evs.length > 1 && best.ev > evs.filter(e => e.index !== best.index)[0]?.ev) {
-      if (daily) {
-        html += `<span class="callout">By ${unit} score, <strong>"${escapeHtml(best.name)}"</strong> wins this round.</span>`;
+      evHtml += daily
+        ? `<div class="callout">By ${unit} score, <strong>"${escapeHtml(best.name)}"</strong> wins this round.</div>`
+        : `<div class="callout">By expected value alone, <strong>"${escapeHtml(best.name)}"</strong> is the stronger path.</div>`;
+    }
+    sections.push({ title: 'Expected Value — what does the math say?', content: evHtml });
+
+    // --- Base Rate ---
+    if (state.biases.baseRate) {
+      const br = state.biases.baseRate;
+      const bestSuccessProb = Math.round(best.bestProb * 100);
+      let brHtml = '';
+      if (bestSuccessProb > br * 2) {
+        Store.addBiasTrigger('overconfidence');
+        brHtml += `<p>You estimated a <strong>${bestSuccessProb}%</strong> chance of a good outcome for "${escapeHtml(best.name)}" — but the typical success rate is only <strong>${br}%</strong>.</p>`;
+        brHtml += `<p>That's a <em>${(bestSuccessProb / br).toFixed(1)}x gap</em>. You might have genuine reasons to be more optimistic, but most people overestimate their chances.</p>`;
+        brHtml += `<div class="callout">What specifically makes your situation different from the average?</div>`;
+      } else if (bestSuccessProb > br) {
+        brHtml += `<p>Your estimate (${bestSuccessProb}%) is somewhat above the typical rate (${br}%). Could be justified if you have a real edge.</p>`;
       } else {
-        html += `<span class="callout">By expected value alone, <strong>"${escapeHtml(best.name)}"</strong> is the stronger path.</span>`;
+        brHtml += `<p>Your estimate (${bestSuccessProb}%) lines up with the base rate (${br}%). You're being realistic — that's a strong signal.</p>`;
       }
+      sections.push({ title: 'Base Rate — what does the denominator say?', content: brHtml });
     }
 
-    $('#ev-narrative').innerHTML = html;
-
-    const maxAbsEV = Math.max(...evs.map(e => Math.abs(e.ev)), 1);
-    $('#ev-bars').innerHTML = evs.map(opt => {
-      const isBest = opt.index === best.index;
-      const width = Math.max(2, (Math.abs(opt.ev) / maxAbsEV) * 100);
-      return `<div class="ev-bar-item">
-        <div class="ev-bar-header">
-          <span class="ev-bar-name">${letterForIndex(opt.index)}. ${escapeHtml(opt.name)}</span>
-          <span class="ev-bar-value ${isBest ? 'best' : 'not-best'}">${formatValue(opt.ev)}</span>
-        </div>
-        <div class="ev-bar-track"><div class="ev-bar-fill ${isBest ? 'best' : 'not-best'}" style="width:${width}%"></div></div>
-      </div>`;
-    }).join('');
-
-  }
-
-  // --- Section 2: Base Rate ---
-  function renderBaseRate(evs, best) {
-    const narrative = $('#base-narrative');
-    const visual = $('#base-visual');
-
-    if (!state.biases.baseRate) {
-      narrative.innerHTML = '<p>You didn\'t provide a success rate, so we can\'t compare your estimates to what usually happens. Even a rough guess — "about 15% of people succeed at this" — is one of the most powerful reality checks available.</p>';
-      visual.innerHTML = '';
-      return;
-    }
-
-    const br = state.biases.baseRate;
-    const bestSuccessProb = Math.round(best.bestProb * 100);
-    let html = '';
-
-    if (bestSuccessProb > br * 2) {
-      Store.addBiasTrigger('overconfidence');
-      html += `<p>You estimated a <strong>${bestSuccessProb}%</strong> chance of a good outcome for "${escapeHtml(best.name)}" — but the typical success rate is only <strong>${br}%</strong>.</p>`;
-      html += `<p>That's a <em>${(bestSuccessProb / br).toFixed(1)}x gap</em>. You might have genuine reasons to be more optimistic — domain expertise, a head start, unique positioning. But most people overestimate their chances.</p>`;
-      html += `<span class="callout">What specifically makes your situation different from the average?</span>`;
-    } else if (bestSuccessProb > br) {
-      html += `<p>Your estimate (${bestSuccessProb}%) is somewhat above the typical rate (${br}%). Could be justified if you have a real edge.</p>`;
-    } else {
-      html += `<p>Your estimate (${bestSuccessProb}%) lines up with the base rate (${br}%). You're being realistic.</p>`;
-      html += `<span class="callout-ok">Your expectations match reality. That's a strong signal.</span>`;
-    }
-
-    narrative.innerHTML = html;
-    visual.innerHTML = `<div class="base-comparison">
-      <div class="base-num-block"><span class="base-num your-est">${bestSuccessProb}%</span><span class="base-num-label">Your estimate</span></div>
-      <span class="base-arrow">→</span>
-      <div class="base-num-block"><span class="base-num actual">${br}%</span><span class="base-num-label">Typical rate</span></div>
-    </div>`;
-
-    // base rate math stored in state
-  }
-
-  // --- Section 3: Sunk Cost ---
-  function renderSunkCost(evs, best) {
-    const narrative = $('#sunk-narrative');
-
-    if (state.biases.sunkCost === 'heavy') {
-      Store.addBiasTrigger('sunkCost');
-      const optIdx = parseInt(state.biases.sunkCostOption, 10);
-      const optName = state.options[optIdx]?.name || 'one option';
-      const isBestEV = best.index === optIdx;
-
-      if (isBestEV) {
-        narrative.innerHTML = `<p>You've invested heavily in <strong>"${escapeHtml(optName)}"</strong> and it also happens to be the best option by the numbers. But ask yourself: if you were starting from zero today, would you still pick it?</p><span class="callout-ok">If the answer is yes, proceed. The past investment is irrelevant — it's the future value that matters.</span>`;
+    // --- Sunk Cost ---
+    if (state.biases.sunkCost && state.biases.sunkCost !== 'none') {
+      let sunkHtml = '';
+      if (state.biases.sunkCost === 'heavy') {
+        Store.addBiasTrigger('sunkCost');
+        const optIdx = parseInt(state.biases.sunkCostOption, 10);
+        const optName = state.options[optIdx]?.name || 'one option';
+        const isBestEV = best.index === optIdx;
+        if (isBestEV) {
+          sunkHtml = `<p>You've invested heavily in <strong>"${escapeHtml(optName)}"</strong> and it happens to be the best option by the numbers. But ask yourself: if you were starting from zero today, would you still pick it?</p><div class="callout">If the answer is yes, proceed. The past investment is irrelevant — it's the future value that matters.</div>`;
+        } else {
+          sunkHtml = `<p>You've put a lot into <strong>"${escapeHtml(optName)}"</strong> — but the numbers say <strong>"${escapeHtml(best.name)}"</strong> has a higher expected value. This is the classic sunk cost trap.</p><div class="callout">The only question that matters: <strong>starting from today, which option gives you the most going forward?</strong></div>`;
+        }
       } else {
-        narrative.innerHTML = `<p>You've put a lot into <strong>"${escapeHtml(optName)}"</strong> — but the numbers say <strong>"${escapeHtml(best.name)}"</strong> has a higher expected value.</p><p>This is the classic sunk cost trap. The time, money, and energy already spent are gone regardless. They shouldn't factor into a forward-looking decision.</p><span class="callout">The only question that matters: <strong>starting from today, which option gives you the most going forward?</strong></span>`;
+        Store.addBiasTrigger('sunkCost');
+        sunkHtml = '<p>You mentioned some prior investment. Watch for this — sometimes we stick with something just because we started it.</p>';
       }
-    } else if (state.biases.sunkCost === 'moderate') {
-      Store.addBiasTrigger('sunkCost');
-      narrative.innerHTML = '<p>You mentioned some prior investment in one option. Watch for this — sometimes we stick with something just because we started it. The money and time already spent don\'t determine whether you should continue.</p>';
-    } else {
-      narrative.innerHTML = '<p>No significant sunk cost here. You can evaluate each option purely on its future value — that\'s the ideal starting position.</p>';
-    }
-  }
-
-  // --- Section 4: Bayesian Update ---
-  function renderBayes(evs, bayesResults, best) {
-    const narrative = $('#bayes-narrative');
-    const visual = $('#bayes-visual');
-
-    if (!bayesResults) {
-      narrative.innerHTML = '<p>Without a base rate, we can\'t adjust your probabilities with real-world data. Your current estimates stand as-is.</p>';
-      visual.innerHTML = '';
-      return;
+      sections.push({ title: 'Sunk Cost — are you throwing good money after bad?', content: sunkHtml });
     }
 
-    let html = '<p>When we blend your estimates with the real-world base rate, here\'s how the picture shifts:</p>';
-    bayesResults.forEach(b => {
-      const shift = b.posterior - b.prior;
-      const dir = shift > 0.01 ? 'up' : shift < -0.01 ? 'down' : 'roughly the same';
-      html += `<p><strong>${escapeHtml(b.name)}:</strong> Your estimate of ${Math.round(b.prior * 100)}% adjusts ${dir} to <em>${Math.round(b.posterior * 100)}%</em>.</p>`;
-    });
-
-    const bestBayes = bayesResults.find(b => b.name === best.name);
-    if (bestBayes && bestBayes.posterior < bestBayes.prior - 0.05) {
-      html += `<span class="callout">The evidence pulls "${escapeHtml(best.name)}" down from ${Math.round(bestBayes.prior * 100)}% to ${Math.round(bestBayes.posterior * 100)}%. Plan for lower odds than your gut says.</span>`;
+    // --- Bayesian Update ---
+    if (bayesResults) {
+      let bayesHtml = '<p>When we blend your estimates with the real-world base rate, here\'s how the picture shifts:</p>';
+      bayesResults.forEach(b => {
+        const shift = b.posterior - b.prior;
+        const dir = shift > 0.01 ? 'up' : shift < -0.01 ? 'down' : 'roughly the same';
+        bayesHtml += `<p><strong>${escapeHtml(b.name)}:</strong> Your estimate of ${Math.round(b.prior * 100)}% adjusts ${dir} to <em>${Math.round(b.posterior * 100)}%</em>.</p>`;
+      });
+      const bestBayes = bayesResults.find(b => b.name === best.name);
+      if (bestBayes && bestBayes.posterior < bestBayes.prior - 0.05) {
+        bayesHtml += `<div class="callout">The evidence pulls "${escapeHtml(best.name)}" down from ${Math.round(bestBayes.prior * 100)}% to ${Math.round(bestBayes.posterior * 100)}%. Plan for lower odds than your gut says.</div>`;
+      }
+      sections.push({ title: 'Evidence Update — what the data says about your odds', content: bayesHtml });
     }
 
-    narrative.innerHTML = html;
-    visual.innerHTML = bayesResults.map(b => `<div class="bayes-row">
-      <span class="bayes-label">Before</span>
-      <span class="bayes-val" style="color:var(--white)">${Math.round(b.prior * 100)}%</span>
-      <span style="color:var(--gray-2);margin:0 8px">→</span>
-      <span class="bayes-label">After</span>
-      <span class="bayes-val" style="color:var(--red)">${Math.round(b.posterior * 100)}%</span>
-      <span style="flex:1;text-align:right;font-size:var(--text-xs);color:var(--gray-3)">${escapeHtml(b.name)}</span>
-    </div>`).join('');
-  }
-
-  // --- Section 5: Survivorship ---
-  function renderSurvivorship() {
-    const narrative = $('#surv-narrative');
+    // --- Survivorship ---
     if (state.biases.survivorship === 'yes') {
       Store.addBiasTrigger('survivorship');
-      narrative.innerHTML = `<p>You mentioned being influenced by a specific success story. This is one of the most common and dangerous thinking traps.</p>
-        <p>For every person who succeeded, there are usually <strong>dozens or hundreds who tried and failed</strong>. You never hear about them. The successes get all the attention while the failures stay invisible.</p>
-        <span class="callout">How many people actually attempted this, and what percentage succeeded?</span>`;
-    } else if (state.biases.survivorship === 'no') {
-      narrative.innerHTML = '<p>You\'re looking at the broad picture rather than being pulled by individual success stories. That means your probability estimates are more likely to reflect reality.</p>';
-    } else {
-      narrative.innerHTML = '<p>No survivorship signal detected. If a particular success story is influencing your confidence, be honest about it — it\'s one of the hardest biases to spot.</p>';
-    }
-  }
-
-  // --- Section 6: Kelly ---
-  function renderKelly(kellyResults, evs) {
-    const narrative = $('#kelly-narrative');
-    const visual = $('#kelly-visual');
-
-    if (!kellyResults) {
-      narrative.innerHTML = '<p>You didn\'t provide a budget, so we can\'t calculate optimal sizing. Even a rough number helps.</p>';
-      visual.innerHTML = '';
-      return;
+      sections.push({ title: 'Survivorship Bias — are you comparing to the right people?', content: '<p>You mentioned being influenced by a specific success story. For every person who succeeded, there are usually <strong>dozens or hundreds who tried and failed</strong>. You never hear about them.</p><div class="callout">How many people actually attempted this, and what percentage succeeded?</div>' });
     }
 
-    const bankroll = kellyResults[0]?.bankroll || 0;
-    const hasEdge = kellyResults.some(k => k.fullKelly > 0);
-    let html = '';
-
-    if (!hasEdge) {
-      html += '<p>None of your options have a clear mathematical edge worth betting aggressively. Commit cautiously.</p>';
-    } else {
-      html += `<p>Given your total budget of <strong>${formatCurrency(bankroll)}</strong>:</p>`;
-      kellyResults.forEach(k => {
-        if (k.fullKelly > 0) {
-          html += `<p><strong>${escapeHtml(k.name)}:</strong> Commit up to <em>${formatCurrency(k.amount)}</em> (${(k.quarterKelly * 100).toFixed(1)}% of budget). Conservative but mathematically sound.</p>`;
-        } else {
-          html += `<p><strong>${escapeHtml(k.name)}:</strong> The math says don't commit significant resources here.</p>`;
-        }
-      });
-    }
-
-    narrative.innerHTML = html;
-
-    if (hasEdge) {
-      const maxAmount = Math.max(...kellyResults.map(k => k.amount), 1);
-      visual.innerHTML = kellyResults.filter(k => k.fullKelly > 0).map(k => `<div class="kelly-bar-wrap">
-        <div class="kelly-bar-header">
-          <span class="kelly-bar-name">${escapeHtml(k.name)}</span>
-          <span class="kelly-bar-amount">${formatCurrency(k.amount)}</span>
-        </div>
-        <div class="kelly-bar-track"><div class="kelly-bar-fill" style="width:${(k.amount / maxAmount) * 100}%"></div></div>
-      </div>`).join('');
-    } else {
-      visual.innerHTML = '';
-    }
-
-  }
-
-  // --- Section 7: Sensitivity ---
-  function renderSensitivity(evs) {
-    const container = $('#sensitivity-sliders');
-    const resultBox = $('#sensitivity-result');
-    container.innerHTML = '';
-
-    const originalBest = [...evs].sort((a, b) => b.ev - a.ev)[0];
-
-    evs.forEach(opt => {
-      const group = document.createElement('div');
-      group.className = 'sens-group';
-      group.innerHTML = `<div class="sens-group-title">${escapeHtml(opt.name)}</div>
-        <div class="sens-row"><label>Best case</label>
-          <input type="range" min="0" max="100" value="${Math.round(opt.bestProb * 100)}" data-opt="${opt.index}" data-type="best" aria-label="Adjust best case for ${escapeHtml(opt.name)}">
-          <span class="sens-val">${Math.round(opt.bestProb * 100)}%</span>
-        </div>
-        <div class="sens-row"><label>Worst case</label>
-          <input type="range" min="0" max="100" value="${Math.round(opt.worstProb * 100)}" data-opt="${opt.index}" data-type="worst" aria-label="Adjust worst case for ${escapeHtml(opt.name)}">
-          <span class="sens-val">${Math.round(opt.worstProb * 100)}%</span>
-        </div>`;
-      container.appendChild(group);
-    });
-
-    resultBox.className = 'sensitivity-result sens-stable';
-    resultBox.innerHTML = '<strong>Move the sliders</strong> to test how changes affect the answer.';
-
-    container.addEventListener('input', (e) => {
-      if (e.target.type !== 'range') return;
-      e.target.nextElementSibling.textContent = e.target.value + '%';
-
-      const newEVs = evs.map(opt => {
-        const bs = container.querySelector(`input[data-opt="${opt.index}"][data-type="best"]`);
-        const ws = container.querySelector(`input[data-opt="${opt.index}"][data-type="worst"]`);
-        const bp = (parseInt(bs.value, 10) || 50) / 100;
-        const wp = (parseInt(ws.value, 10) || 50) / 100;
-        const total = bp + wp;
-        const nb = total > 0 ? bp / total : 0.5;
-        const nw = total > 0 ? wp / total : 0.5;
-        return { ...opt, ev: nb * opt.bestPayoff + nw * opt.worstPayoff };
-      });
-
-      const newBest = [...newEVs].sort((a, b) => b.ev - a.ev)[0];
-
-      if (newBest.index !== originalBest.index) {
-        resultBox.className = 'sensitivity-result sens-changed';
-        resultBox.innerHTML = `<strong>The answer changed!</strong> "${escapeHtml(newBest.name)}" (${formatNumber(newBest.ev)}) now beats "${escapeHtml(originalBest.name)}". Your conclusion depends on getting these probabilities right.`;
+    // --- Kelly Criterion ---
+    if (!daily && kellyResults) {
+      const bankroll = kellyResults[0]?.bankroll || 0;
+      const hasEdge = kellyResults.some(k => k.fullKelly > 0);
+      let kellyHtml = '';
+      if (!hasEdge) {
+        kellyHtml = '<p>None of your options have a clear mathematical edge worth betting aggressively. Commit cautiously.</p>';
       } else {
-        const summary = newEVs.map(e => `${escapeHtml(e.name)}: ${formatNumber(e.ev)}`).join(' · ');
-        resultBox.className = 'sensitivity-result sens-stable';
-        resultBox.innerHTML = `<strong>Still the same answer.</strong> "${escapeHtml(newBest.name)}" stays on top. ${summary}`;
+        kellyHtml = `<p>Given your total budget of <strong>${formatCurrency(bankroll)}</strong>:</p>`;
+        kellyResults.forEach(k => {
+          kellyHtml += k.fullKelly > 0
+            ? `<p><strong>${escapeHtml(k.name)}:</strong> Commit up to <em>${formatCurrency(k.amount)}</em> (${(k.quarterKelly * 100).toFixed(1)}% of budget). Conservative but mathematically sound.</p>`
+            : `<p><strong>${escapeHtml(k.name)}:</strong> The math says don't commit significant resources here.</p>`;
+        });
       }
-    });
-  }
-
-  // --- Section 8: Opportunity Cost ---
-  function renderOpportunityCost(evs, best, second) {
-    const narrative = $('#opp-cost-narrative');
-    const daily = isDailyDecision();
-
-    if (daily) {
-      // Lightweight opportunity cost for daily decisions
-      const losing = evs.filter(e => e.index !== best.index);
-      if (losing.length > 0) {
-        const bestLost = losing.sort((a, b) => b.ev - a.ev)[0];
-        narrative.innerHTML = `<p>By picking <strong>"${escapeHtml(best.name)}"</strong>, you're giving up "${escapeHtml(bestLost.name)}" — which scores ${formatValue(bestLost.ev)}. That's a gap of ${formatValue(Math.abs(best.ev - bestLost.ev))}.</p>
-          <p>For a daily decision, the opportunity cost is low — you can usually try the other option tomorrow. Don't overthink it.</p>`;
-      } else {
-        narrative.innerHTML = '<p>Only one option — no opportunity cost to weigh.</p>';
-      }
-      return;
+      sections.push({ title: 'How much to commit — sizing the bet', content: kellyHtml });
     }
 
-    let html = '';
-
-    // Time opportunity cost
-    const ctx = state.context || {};
-    if (ctx.lifeStage) {
-      const ageMultipliers = {
-        'student': 'Your time is cheap in money terms but expensive in learning potential. A year spent on the wrong path at this stage compounds — you miss a year of skills in the right field.',
-        'early-career': 'Each year early in your career builds compounding reputation capital. A year spent on a low-growth path costs you 5-10 years of compounded network effects and skill acquisition.',
-        'career-change': 'You\'re already paying the switching cost. The opportunity cost of NOT committing fully is that you bear the pain of transition without getting the benefits.',
-        'parent': 'Your time is split. The opportunity cost of any decision includes the time it takes away from family — and that\'s non-recoverable.',
-        'pre-retirement': 'Time is your scarcest resource. The opportunity cost of a slow-payoff bet is that you may not have the runway to see it through.',
-      };
-      if (ageMultipliers[ctx.lifeStage]) {
-        html += `<p>${ageMultipliers[ctx.lifeStage]}</p>`;
-      }
-    }
-
-    // Financial opportunity cost
-    if (evs.length >= 2) {
+    // --- Opportunity Cost ---
+    if (!daily && evs.length >= 2) {
       const gap = Math.abs(best.ev - second.ev);
-      html += `<p>Choosing <strong>"${escapeHtml(second.name)}"</strong> over "${escapeHtml(best.name)}" costs you approximately <em>${formatNumber(gap)}</em> in expected value. That's the price of being wrong.</p>`;
-    }
-
-    // Energy/cognitive opportunity cost
-    if (ctx.emotionalState === 'burned-out' || ctx.emotionalState === 'pressured') {
-      html += `<span class="callout">Hidden opportunity cost: the energy you're spending on this decision itself. Decision fatigue is real — every hour deliberating is an hour not executing. Set a deadline to decide and commit.</span>`;
-    }
-
-    // Resource spread cost
-    if (state.options.length > 2) {
-      html += `<p>You're considering <strong>${state.options.length} options</strong>. The more paths you keep open, the less you invest in any one — and half-measures rarely produce full results.</p>`;
-    }
-
-    if (!html) {
-      html = `<p>Choosing "${escapeHtml(best.name)}" means not choosing "${escapeHtml(second?.name || 'the alternative')}". The question isn't just "is this good?" — it's "is this the BEST use of the same time, money, and energy?"</p>`;
-    }
-
-    narrative.innerHTML = html;
-  }
-
-  // --- Section 9: Regret Minimization ---
-  function renderRegretMinimization(evs, best, second) {
-    const narrative = $('#regret-narrative');
-    const daily = isDailyDecision();
-
-    if (daily) {
-      narrative.innerHTML = '<p>For a daily decision, regret is minimal either way. Pick the one that sounds fun right now — future-you won\'t care.</p>';
-      return;
-    }
-
-    let html = '';
-    const ctx = state.context || {};
-
-    // Asymmetry detection
-    const bestUpside = best.bestPayoff;
-    const bestDownside = Math.abs(best.worstPayoff);
-    const ratio = bestUpside / Math.max(bestDownside, 1);
-    const isAsymmetric = ratio > 3;
-
-    if (isAsymmetric) {
-      html += `<p><strong>This is an asymmetric bet.</strong> The upside (${formatNumber(bestUpside)}) is ${ratio.toFixed(1)}x the downside (${formatNumber(best.worstPayoff)}). Bezos's regret minimization framework says: at 80 years old, you'll regret the things you didn't try far more than the things you tried and failed at.</p>`;
-      html += `<span class="callout">When the upside is unbounded and the downside is survivable, the regret-minimizing choice is almost always to try.</span>`;
-    } else if (second && Math.abs(best.ev - second.ev) < Math.abs(best.bestPayoff) * 0.1) {
-      // Close call
-      html += `<p>These options are close in expected value. When the math is ambiguous, ask the regret question: <strong>In 10 years, which choice would you regret NOT making?</strong></p>`;
-      html += `<p>Usually, people regret inaction more than action. The failed attempt teaches you something; the road not taken just haunts you.</p>`;
-    } else {
-      html += `<p><strong>The regret test:</strong> Imagine you're 80 years old, looking back at this moment. Which version of the story would you rather tell?</p>`;
-
-      // Check for "safe" vs "bold" option pattern
-      const safest = evs.reduce((a, b) => Math.abs(a.worstPayoff) < Math.abs(b.worstPayoff) ? a : b);
-      const boldest = evs.reduce((a, b) => a.bestPayoff > b.bestPayoff ? a : b);
-
-      if (safest.index !== boldest.index) {
-        html += `<p>"${escapeHtml(safest.name)}" is the safer path — worst case is ${formatNumber(safest.worstPayoff)}. "${escapeHtml(boldest.name)}" is the bolder path — best case is ${formatNumber(boldest.bestPayoff)}.</p>`;
-        html += `<p>Research on end-of-life regrets consistently shows people regret the bold paths they <em>didn't</em> take more than the ones they tried and failed at — as long as the failure was survivable.</p>`;
+      let oppHtml = `<p>Choosing <strong>"${escapeHtml(second.name)}"</strong> over "${escapeHtml(best.name)}" costs you approximately <em>${formatNumber(gap)}</em> in expected value. That's the price of being wrong.</p>`;
+      const ctx = state.context || {};
+      if (ctx.emotionalState === 'burned-out' || ctx.emotionalState === 'pressured') {
+        oppHtml += `<div class="callout">Hidden cost: the energy you're spending deliberating. Set a deadline to decide and commit.</div>`;
       }
+      sections.push({ title: 'Opportunity Cost — what are you giving up?', content: oppHtml });
     }
 
-    // Life stage modulation
-    if (ctx.lifeStage === 'student' || ctx.lifeStage === 'early-career') {
-      html += `<p>At your stage, the cost of a failed experiment is low and the lessons are high. This is when you should be running experiments, not optimizing for safety.</p>`;
-    } else if (ctx.lifeStage === 'pre-retirement') {
-      html += `<p>At this stage, reversing a bad decision is harder. Weight the regret of a bad outcome more heavily than the regret of a missed opportunity.</p>`;
-    }
-
-    narrative.innerHTML = html;
-  }
-
-  // --- Section 10: Reversibility Analysis ---
-  function renderReversibility(evs, best, second) {
-    const narrative = $('#reverse-narrative');
-    const visual = $('#reverse-visual');
-    const daily = isDailyDecision();
-
-    if (daily) {
-      narrative.innerHTML = '<p>Daily decisions are almost always reversible. Low stakes, try it, adjust tomorrow.</p>';
-      visual.innerHTML = '';
-      return;
-    }
-
-    let html = '';
-
-    // Score each option's reversibility
-    const scores = evs.map(opt => {
-      let rev = 3; // default: moderately reversible
-      const name = (opt.name || '').toLowerCase();
-      const desc = state.decision.toLowerCase();
-
-      // One-way door signals
-      const oneWaySignals = ['marry', 'divorce', 'child', 'baby', 'tattoo', 'surgery', 'sell house', 'emigrate', 'drop out', 'burn bridge'];
-      const hardToReverseSignals = ['buy house', 'mortgage', 'sign lease', 'commit', 'enroll', 'accept offer', 'quit', 'resign', 'relocate'];
-      const easyToReverseSignals = ['try', 'test', 'experiment', 'freelance', 'side', 'part-time', 'course', 'pilot', 'beta'];
-
-      if (oneWaySignals.some(s => name.includes(s) || desc.includes(s))) rev = 1;
-      else if (hardToReverseSignals.some(s => name.includes(s) || desc.includes(s))) rev = 2;
-      else if (easyToReverseSignals.some(s => name.includes(s) || desc.includes(s))) rev = 4;
-
-      return { ...opt, reversibility: rev };
-    });
-
-    const labels = { 1: 'One-way door', 2: 'Hard to reverse', 3: 'Reversible with effort', 4: 'Easily reversible' };
-    const colors = { 1: 'var(--red)', 2: 'var(--orange)', 3: 'var(--blue)', 4: 'var(--green)' };
-
-    html += '<p><strong>Amazon\'s "one-way door / two-way door" framework:</strong> One-way doors demand careful deliberation. Two-way doors should be made fast — the cost of delay usually exceeds the cost of being wrong.</p>';
-
-    scores.forEach(s => {
-      html += `<p><strong>${escapeHtml(s.name)}:</strong> <span style="color:${colors[s.reversibility]};font-weight:600">${labels[s.reversibility]}</span>`;
-      if (s.reversibility <= 2) {
-        html += ` — Take extra time. Get more data. This is hard to undo.`;
+    // --- Regret Minimization ---
+    if (!daily) {
+      let regretHtml = '';
+      const bestUpside = best.bestPayoff;
+      const bestDownside = Math.abs(best.worstPayoff);
+      const ratio = bestUpside / Math.max(bestDownside, 1);
+      if (ratio > 3) {
+        regretHtml = `<p><strong>This is an asymmetric bet.</strong> The upside (${formatNumber(bestUpside)}) is ${ratio.toFixed(1)}x the downside (${formatNumber(best.worstPayoff)}). At 80 years old, you'll regret the things you didn't try far more than the things you tried and failed at.</p><div class="callout">When the upside is unbounded and the downside is survivable, the regret-minimizing choice is almost always to try.</div>`;
       } else {
-        html += ` — Decide quickly. You can course-correct if needed.`;
+        regretHtml = `<p><strong>The regret test:</strong> Imagine you're 80 years old, looking back at this moment. Which version of the story would you rather tell?</p>`;
+        regretHtml += `<p>Research on end-of-life regrets consistently shows people regret the bold paths they <em>didn't</em> take more than the ones they tried and failed at — as long as the failure was survivable.</p>`;
       }
-      html += `</p>`;
-    });
-
-    // Time decay check
-    if (state.deadline) {
-      const dl = new Date(state.deadline);
-      const days = Math.ceil((dl - new Date()) / 86400000);
-      if (days < 14 && days > 0) {
-        html += `<span class="callout">You have <strong>${days} days</strong> until your deadline. A reversible option you can start now is worth more than a "perfect" choice you make too late.</span>`;
-      }
+      sections.push({ title: 'Regret Minimization — what would 80-year-old you choose?', content: regretHtml });
     }
 
-    // Detect if best EV is also less reversible
-    const bestScore = scores.find(s => s.index === best.index);
-    const secondScore = second ? scores.find(s => s.index === second.index) : null;
-    if (bestScore && secondScore && bestScore.reversibility < secondScore.reversibility) {
-      html += `<p>Note: "${escapeHtml(best.name)}" has higher expected value but is less reversible. Consider starting with "${escapeHtml(second.name)}" to test the waters before committing to the bigger move.</p>`;
-    }
-
-    narrative.innerHTML = html;
-
-    // Visual: door indicators
-    visual.innerHTML = scores.map(s => `<div class="reverse-indicator">
-      <span class="reverse-door" style="border-color:${colors[s.reversibility]}">${s.reversibility <= 2 ? '🚪→' : '🚪⟲'}</span>
-      <span class="reverse-name">${escapeHtml(s.name)}</span>
-      <span class="reverse-label" style="color:${colors[s.reversibility]}">${labels[s.reversibility]}</span>
-    </div>`).join('');
-  }
-
-  // --- Section 11: Optionality Mapping ---
-  function renderOptionality(evs, best, second) {
-    const narrative = $('#optionality-narrative');
-    const daily = isDailyDecision();
-
-    if (daily) {
-      narrative.innerHTML = '<p>Daily choices rarely close doors. Pick freely.</p>';
-      return;
-    }
-
-    let html = '';
-
-    // Analyze which options open/close doors
-    const optionScores = evs.map(opt => {
-      const name = (opt.name || '').toLowerCase();
+    // --- Reversibility ---
+    if (!daily) {
+      const name = (best.name || '').toLowerCase();
       const desc = state.decision.toLowerCase();
-      let opens = 0;
-      let closes = 0;
+      const oneWay = ['marry', 'divorce', 'child', 'baby', 'tattoo', 'surgery', 'sell house', 'emigrate', 'drop out'];
+      const hardReverse = ['buy house', 'mortgage', 'sign lease', 'commit', 'enroll', 'accept offer', 'quit', 'resign', 'relocate'];
+      const easyReverse = ['try', 'test', 'experiment', 'freelance', 'side', 'part-time', 'course', 'pilot', 'beta'];
+      let revLabel = 'Reversible with effort';
+      if (oneWay.some(s => name.includes(s) || desc.includes(s))) revLabel = 'One-way door — take extra time';
+      else if (hardReverse.some(s => name.includes(s) || desc.includes(s))) revLabel = 'Hard to reverse — get more data first';
+      else if (easyReverse.some(s => name.includes(s) || desc.includes(s))) revLabel = 'Easily reversible — decide quickly';
+      sections.push({ title: 'Reversibility — one-way door or two-way door?', content: `<p><strong>"${escapeHtml(best.name)}":</strong> ${revLabel}.</p><p>Amazon's framework: one-way doors demand careful deliberation. Two-way doors should be made fast — the cost of delay usually exceeds the cost of being wrong.</p>` });
+    }
 
-      // Signals that options OPEN doors
-      const openSignals = ['learn', 'skill', 'network', 'degree', 'course', 'build', 'create', 'start', 'mvp', 'beta', 'certif', 'intern', 'apprentice', 'experience'];
-      // Signals that options CLOSE doors
-      const closeSignals = ['specialize', 'commit', 'exclusive', 'full-time', 'all-in', 'burn', 'sell', 'give up', 'drop', 'quit', 'leave', 'abandon'];
+    // --- Pre-Mortem ---
+    if (!daily) {
+      let pmHtml = `<p><strong>Pre-mortem exercise:</strong> Imagine it's 12 months from now and "${escapeHtml(best.name)}" has failed spectacularly. What went wrong?</p>`;
+      const failureModes = [];
+      if (state.biases.baseRate && state.biases.baseRate < 50) {
+        failureModes.push(`The base rate is ${state.biases.baseRate}% — the most likely failure is simply regression to the mean.`);
+      }
+      failureModes.push('The timing was wrong — the decision was sound but the context shifted.');
+      failureModes.push('Execution killed it — the plan was right but you got distracted or under-resourced it.');
+      pmHtml += '<ul>' + failureModes.map(m => `<li>${m}</li>`).join('') + '</ul>';
+      pmHtml += '<div class="callout"><strong>The antidote:</strong> For each failure mode, write down one thing you\'ll do to detect it early — within 30-60 days instead of 6-12 months.</div>';
+      sections.push({ title: 'Pre-Mortem — how does this fail?', content: pmHtml });
+    }
 
-      openSignals.forEach(s => { if (name.includes(s) || desc.includes(s)) opens++; });
-      closeSignals.forEach(s => { if (name.includes(s) || desc.includes(s)) closes++; });
-
-      return { ...opt, opens, closes, net: opens - closes };
+    // Render all sections into #analysis-content
+    sections.forEach((sec, i) => {
+      const el = document.createElement('div');
+      el.className = 'analysis-section reveal-section';
+      el.innerHTML = `
+        <h3 class="analysis-section-title">
+          <span class="why-num">${String(i + 1).padStart(2, '0')}</span>
+          ${escapeHtml(sec.title)}
+        </h3>
+        <div class="narrative">${sec.content}</div>`;
+      container.appendChild(el);
     });
 
-    html += '<p><strong>Optionality is the right — but not the obligation — to take future action.</strong> All else being equal, prefer choices that open more doors than they close.</p>';
-
-    // Compare
-    optionScores.forEach(opt => {
-      if (opt.opens > opt.closes) {
-        html += `<p><strong>${escapeHtml(opt.name)}:</strong> <span style="color:var(--green)">Opens doors</span> — this builds skills, credentials, or connections you can use regardless of what happens next.</p>`;
-      } else if (opt.closes > opt.opens) {
-        html += `<p><strong>${escapeHtml(opt.name)}:</strong> <span style="color:var(--orange)">Narrows options</span> — this commits you to a specific path. Make sure the payoff justifies the reduced flexibility.</p>`;
-      } else {
-        html += `<p><strong>${escapeHtml(opt.name)}:</strong> <span style="color:var(--white-60)">Neutral</span> — doesn't significantly expand or limit your future choices.</p>`;
-      }
-    });
-
-    // Key insight
-    if (best && second) {
-      const bestOpt = optionScores.find(o => o.index === best.index);
-      const secondOpt = optionScores.find(o => o.index === second.index);
-      if (bestOpt && secondOpt && secondOpt.net > bestOpt.net) {
-        html += `<span class="callout">"${escapeHtml(second.name)}" preserves more optionality than "${escapeHtml(best.name)}", even though the EV is lower. If you're uncertain about your long-term direction, the flexibility might be worth the trade-off.</span>`;
-      }
-    }
-
-    // Time horizon interaction
-    if (state.timeHorizon === 'decade' || state.timeHorizon === 'years') {
-      html += `<p>Over a long time horizon, optionality becomes more valuable — the further out you're planning, the more unknowns exist, and the more you benefit from keeping doors open.</p>`;
-    }
-
-    narrative.innerHTML = html;
-  }
-
-  // --- Section 12: Pre-Mortem ---
-  function renderPreMortem(evs, best) {
-    const narrative = $('#premortem-narrative');
-    const daily = isDailyDecision();
-
-    if (daily) {
-      narrative.innerHTML = '<p>For a daily decision, don\'t overthink failure modes. If it doesn\'t work out, you\'ll know by tonight.</p>';
-      return;
-    }
-
-    let html = '';
-    const ctx = state.context || {};
-
-    html += '<p><strong>Pre-mortem exercise:</strong> Imagine it\'s 12 months from now and "${escapeHtml(best.name)}" has failed spectacularly. What went wrong?</p>';
-
-    // Generate failure modes based on context
-    const failureModes = [];
-
-    // Base rate failure
-    if (state.biases.baseRate && state.biases.baseRate < 50) {
-      failureModes.push(`The base rate is ${state.biases.baseRate}% — meaning ${100 - state.biases.baseRate}% of people in this situation fail. The most likely failure is simply the default outcome: regression to the mean.`);
-    }
-
-    // Financial failure modes
-    if (ctx.runway === '0' || ctx.runway === '1-3') {
-      failureModes.push(`You ran out of money before the decision paid off. With limited runway, the #1 killer isn't being wrong — it's being right but too slow.`);
-    }
-
-    // Emotional/energy failure
-    if (ctx.emotionalState === 'burned-out') {
-      failureModes.push(`You burned out before reaching the payoff. The plan was good, but you underestimated how much sustained energy it required.`);
-    }
-
-    // Overconfidence failure
-    if (state.biases.baseRate && best.bestProb * 100 > state.biases.baseRate * 1.5) {
-      failureModes.push(`You overestimated your odds. Your ${Math.round(best.bestProb * 100)}% estimate was optimistic — the actual rate is closer to ${state.biases.baseRate}%. Planning for success when the base rate says otherwise is the most common failure mode.`);
-    }
-
-    // Timing failure
-    failureModes.push(`The timing was wrong. The decision itself was sound, but the market/context shifted, or you started too early/too late.`);
-
-    // Execution failure
-    failureModes.push(`Execution, not strategy, killed it. The plan was right but you got distracted, under-resourced it, or didn't iterate fast enough on feedback.`);
-
-    if (failureModes.length > 0) {
-      html += '<p><strong>Most likely failure modes:</strong></p>';
-      html += '<ul>';
-      failureModes.forEach(mode => {
-        html += `<li>${mode}</li>`;
-      });
-      html += '</ul>';
-    }
-
-    // Mitigation
-    html += `<span class="callout"><strong>The pre-mortem antidote:</strong> For each failure mode above, write down one specific thing you'll do to detect it early. If you can spot failure within 30-60 days instead of 6-12 months, you can course-correct before the damage is catastrophic.</span>`;
-
-    narrative.innerHTML = html;
-  }
-
-  // --- Final Verdict ---
-  function renderFinalVerdict(evs, best, second, bayesResults, kellyResults) {
-    const container = $('#final-verdict');
-    let html = '<div class="narrative">';
-
-    const daily = isDailyDecision();
-    const unit = daily ? getDailyUnit() : '';
-
+    // Final verdict
+    const verdictEl = document.createElement('div');
+    verdictEl.className = 'analysis-section analysis-verdict reveal-section';
+    let verdictHtml = '<h3 class="analysis-section-title">The bottom line</h3><div class="narrative">';
     if (evs.length >= 2 && best.ev > second.ev) {
-      if (daily) {
-        html += `<p><strong>Go with "${escapeHtml(best.name)}"</strong> — it scores ${formatValue(best.ev)} on ${unit}, beating "${escapeHtml(second.name)}" by ${formatValue(best.ev - second.ev)}.</p>`;
-      } else {
-        html += `<p><strong>Your optimal path is "${escapeHtml(best.name)}"</strong> — expected value of ${formatNumber(best.ev)}, which is ${formatNumber(best.ev - second.ev)} more than "${escapeHtml(second.name)}".</p>`;
-      }
+      verdictHtml += daily
+        ? `<p><strong>Go with "${escapeHtml(best.name)}"</strong> — it scores ${formatValue(best.ev)} on ${unit}, beating "${escapeHtml(second.name)}" by ${formatValue(best.ev - second.ev)}.</p>`
+        : `<p><strong>Your optimal path is "${escapeHtml(best.name)}"</strong> — expected value of ${formatNumber(best.ev)}, which is ${formatNumber(best.ev - second.ev)} more than "${escapeHtml(second.name)}".</p>`;
     } else {
-      if (daily) {
-        html += '<p>Both options score about the same — this is a coin-flip in the best way. Pick whichever feels right in the moment.</p>';
-      } else {
-        html += '<p>The options are very close. The decision probably comes down to factors the math can\'t capture — your energy, timing, and which path excites you more.</p>';
-      }
+      verdictHtml += daily
+        ? '<p>Both options score about the same — pick whichever feels right in the moment.</p>'
+        : '<p>The options are very close. The decision probably comes down to your energy, timing, and which path excites you more.</p>';
     }
+    verdictHtml += '</div>';
+    verdictEl.innerHTML = verdictHtml;
+    container.appendChild(verdictEl);
 
-    // Daily context insights from follow-up
-    if (daily && state.context) {
-      const ctx = state.context;
-      const dailyInsights = [];
-
-      if (ctx.mood_right_now) {
-        const moodAdvice = {
-          'energized': 'You\'re feeling energized — lean into the more active or challenging option.',
-          'chill': 'You\'re in chill mode — favor the lower-effort, more relaxing choice.',
-          'tired': 'Low battery today. Go with whatever requires the least activation energy — you\'ll thank yourself.',
-          'bored': 'You\'re bored — pick the option that breaks your routine or gives you something new.',
-          'stressed': 'Stressed out — prioritize the option that gives you genuine relief, not just distraction.',
-        };
-        if (moodAdvice[ctx.mood_right_now]) dailyInsights.push(moodAdvice[ctx.mood_right_now]);
-      }
-
-      if (ctx.recent_pattern) {
-        const patternAdvice = {
-          'screens': 'You\'ve had too much screen time lately — if one option gets you off screens, that\'s a bonus.',
-          'work': 'You\'ve been grinding — choose rest or play over more productivity.',
-          'junk-food': 'Too much junk food recently — a healthier choice might actually feel better right now.',
-          'staying-in': 'You\'ve been staying in a lot — getting out, even briefly, will probably do more for you.',
-        };
-        if (patternAdvice[ctx.recent_pattern]) dailyInsights.push(patternAdvice[ctx.recent_pattern]);
-      }
-
-      if (ctx.priority_today) {
-        const priorityLabels = { fun: 'fun', health: 'health', productivity: 'progress', money: 'saving money', rest: 'rest' };
-        dailyInsights.push(`Your priority right now is <strong>${priorityLabels[ctx.priority_today] || ctx.priority_today}</strong> — weigh that above the raw score.`);
-      }
-
-      if (dailyInsights.length > 0) {
-        html += '<div class="context-insights"><h4>Tuned to your moment</h4>';
-        dailyInsights.forEach(insight => { html += `<p>${insight}</p>`; });
-        html += '</div>';
-      }
-    }
-
-    const warnCount = [
-      state.biases.sunkCost === 'heavy' || state.biases.sunkCost === 'moderate',
-      state.biases.survivorship === 'yes',
-      state.biases.baseRate && best.bestProb * 100 > state.biases.baseRate * 1.5,
-    ].filter(Boolean).length;
-
-    if (warnCount > 0) {
-      html += `<p>We flagged <em>${warnCount} thinking trap${warnCount > 1 ? 's' : ''}</em> that could be clouding your judgment. Review the sections above before committing.</p>`;
-    }
-
-    if (kellyResults) {
-      const bestKelly = kellyResults.find(k => k.name === best.name);
-      if (bestKelly && bestKelly.amount > 0) {
-        html += `<p>Smart allocation: around <strong>${formatCurrency(bestKelly.amount)}</strong> — meaningful exposure without catastrophic downside.</p>`;
-      }
-    }
-
-    if (state.timeHorizon) {
-      const map = { days: 'the next few days', weeks: 'the next few weeks', months: 'the next few months', '1year': 'the next year', years: 'the next few years', decade: 'the next decade' };
-      html += `<p>This plays out over <strong>${map[state.timeHorizon] || 'time'}</strong> — you have room to course-correct if early signals don't match.</p>`;
-    }
-
-    // Hyper-personalization context insights
-    const ctx = state.context || {};
-    const contextInsights = [];
-
-    if (ctx.runway) {
-      const runwayLabels = { '0': 'virtually no financial runway', '1-3': '1–3 months of runway', '3-6': '3–6 months of buffer', '6-12': '6–12 months of cushion', '12+': 'over 12 months of runway' };
-      const runwayRisk = ctx.runway === '0' || ctx.runway === '1-3';
-      if (runwayRisk) {
-        contextInsights.push(`With <strong>${runwayLabels[ctx.runway] || 'limited runway'}</strong>, prioritize options that preserve cash flow. A high-upside gamble isn't worth it if a bad month means you can't cover basics.`);
-      } else {
-        contextInsights.push(`With <strong>${runwayLabels[ctx.runway]}</strong>, you have breathing room to take a measured risk — but don't confuse a cushion with permission to be reckless.`);
-      }
-    }
-
-    if (ctx.dependents && ctx.dependents !== 'none') {
-      const depLabels = { 'partner': 'a partner', 'family-small': 'a small family', 'family-large': 'a larger family', 'extended': 'extended family' };
-      contextInsights.push(`You're responsible for <strong>${depLabels[ctx.dependents] || 'others'}</strong>. Factor in their stability — a decision that's bold for a solo person may be irresponsible when others depend on the outcome.`);
-    }
-
-    if (ctx.emotionalState && ctx.emotionalState !== 'calm') {
-      const emotionWarnings = {
-        'excited': 'You said you\'re feeling excited and leaning toward something. Excitement narrows focus — make sure you\'re not overlooking downsides because momentum feels good.',
-        'anxious': 'You flagged anxiety around this decision. Anxious minds overweight worst-case scenarios. The numbers above are your anchor — trust the math over the feeling.',
-        'pressured': 'You\'re under external pressure to decide fast. Rushed decisions disproportionately favor the status quo or the loudest voice. If possible, buy yourself even 48 more hours.',
-        'burned-out': 'You said you\'re burned out. Low energy means lower risk tolerance and worse pattern recognition. If this can wait, let it wait. If it can\'t, lean harder on the frameworks above.',
-      };
-      contextInsights.push(emotionWarnings[ctx.emotionalState] || '');
-    }
-
-    if (ctx.riskTolerance) {
-      const riskNotes = {
-        'very-cautious': 'Your natural preference is high certainty. The quarter-Kelly sizing above is especially relevant — it limits downside while keeping you in the game.',
-        'cautious': 'You prefer calculated bets. Focus on the sensitivity section — if the answer holds even when you slide your estimates toward pessimistic, it\'s a go.',
-        'aggressive': 'You lean into risk. That\'s a strength when the EV is positive, but double-check the base rate section — aggressive people tend to overweight their own odds.',
-        'very-aggressive': 'You\'re wired to swing big. That works when the math supports it. But check: are you excited about this because the numbers are good, or because the story is good?',
-      };
-      if (riskNotes[ctx.riskTolerance]) contextInsights.push(riskNotes[ctx.riskTolerance]);
-    }
-
-    if (ctx.cultural && ctx.cultural !== 'none') {
-      const culturalNotes = {
-        'some': 'There are some cultural or family expectations in play. Weigh them, but don\'t let them override what the numbers say unless the social cost of defying them is genuinely high.',
-        'strong': 'Strong cultural or family expectations are shaping your options. This is a real constraint — the "optimal" choice on paper may not be viable if it fractures key relationships.',
-        'dominant': 'Cultural or family pressure is a dominant force here. Be honest about what\'s actually on the table. The best decision is the best <em>feasible</em> decision — and feasibility includes social reality.',
-      };
-      if (culturalNotes[ctx.cultural]) contextInsights.push(culturalNotes[ctx.cultural]);
-    }
-
-    if (ctx.lifeStage) {
-      const stageNotes = {
-        'student': 'As a student, your biggest asset is time and low obligations. This is the highest-risk-tolerance phase of your life — if you\'re ever going to take a shot, now is when.',
-        'early-career': 'Early in your career, you\'re building reputation capital. Weigh whether this decision compounds your skills and network, not just the short-term payoff.',
-        'career-change': 'Pivoting is expensive but often necessary. Your transferable skills are the bridge — make sure the path you choose actually uses them.',
-        'parent': 'As a parent or caregiver, stability isn\'t just a preference — it\'s a responsibility. The right amount of risk is lower than it was before others depended on you.',
-        'pre-retirement': 'At this stage, preservation matters more than growth. Avoid decisions that put a large percentage of your assets at risk for marginal upside.',
-      };
-      if (stageNotes[ctx.lifeStage]) contextInsights.push(stageNotes[ctx.lifeStage]);
-    }
-
-    if (ctx.location) {
-      contextInsights.push(`Based in <strong>${escapeHtml(ctx.location)}</strong> — local cost of living, market conditions, and opportunity access all factor into whether the numbers above translate to your reality.`);
-    }
-
-    if (contextInsights.length > 0) {
-      html += '<div class="context-insights"><h4>Personalized to your situation</h4>';
-      contextInsights.forEach(insight => {
-        if (insight) html += `<p>${insight}</p>`;
-      });
-      html += '</div>';
-    }
-
-    html += '</div>';
-    container.innerHTML = html;
-    const section = $('#personal-section');
-    if (section) section.hidden = false;
+    // Expiry banner
+    renderExpiryBanner();
   }
+
+  // Old static render functions removed — all rendering now goes through
+  // renderAIResults (AI path) or runLocalAnalysis (local fallback)
 
   function renderExpiryBanner() {
     const banner = $('#expiry-banner');
@@ -1784,35 +1235,6 @@
       banner.textContent = `Deadline: ${formatDate(dl.getTime())} (${days} days away).`;
     }
   }
-
-  function renderPersonalBiasProfile() {
-    const bp = Store._data.biasProfile;
-    const total = Object.values(bp).reduce((a, b) => a + b, 0);
-    const section = $('#personal-section');
-    if (total < 2) { if (section) section.hidden = true; return; }
-
-    if (section) section.hidden = false;
-    const content = $('#final-verdict');
-    const biasLabels = {
-      sunkCost: 'Holding on to past investments',
-      survivorship: 'Inspired by success stories',
-      overconfidence: 'Overestimating your odds',
-      lossAversion: 'Avoiding risk even when it pays off',
-    };
-    const maxCount = Math.max(...Object.values(bp), 1);
-
-    content.innerHTML = Object.entries(bp).map(([key, count]) => `<div class="bias-bar">
-      <div class="bias-bar-header"><span class="bias-bar-name">${biasLabels[key]}</span><span class="bias-bar-count">${count}×</span></div>
-      <div class="bias-bar-track"><div class="bias-bar-fill ${key === 'sunkCost' ? 'sunk-cost' : key}" style="width:${(count / maxCount) * 100}%"></div></div>
-    </div>`).join('');
-
-    const topBias = Object.entries(bp).sort((a, b) => b[1] - a[1])[0];
-    if (topBias[1] >= 2) {
-      content.innerHTML += `<p style="font-size:var(--text-sm);color:var(--red);margin-top:var(--space-4);">Your biggest pattern: <strong>${biasLabels[topBias[0]]}</strong> (${topBias[1]}×). Watch for it.</p>`;
-    }
-  }
-
-  // ================================================================
   // AUTO-SAVE — save every analysis automatically
   // ================================================================
   function autoSaveDecision() {
@@ -2620,7 +2042,7 @@
     runFullAnalysis();
   });
 
-  function runFullAnalysis() {
+  async function runFullAnalysis() {
     // Show thinking screen
     showScreen('thinking');
 
@@ -2629,29 +2051,67 @@
 
     // Animate thinking steps
     const stepsEl = $('#thinking-steps');
-    const steps = ['Reading your question', 'Running 12 frameworks', 'Personalizing the answer'];
     stepsEl.innerHTML = '';
-    let stepIdx = 0;
 
-    const stepInterval = setInterval(() => {
-      if (stepIdx < steps.length) {
-        const s = document.createElement('div');
-        s.className = 'thinking-step chat-fade-in';
-        s.textContent = steps[stepIdx];
-        stepsEl.appendChild(s);
-        stepIdx++;
-      } else {
-        clearInterval(stepInterval);
+    function addStep(text) {
+      const s = document.createElement('div');
+      s.className = 'thinking-step chat-fade-in';
+      s.textContent = text;
+      stepsEl.appendChild(s);
+    }
+
+    addStep('Reading your question');
+
+    // Try AI-powered analysis first
+    try {
+      await new Promise(r => setTimeout(r, 600));
+      addStep('Connecting to AI');
+
+      const personalContext = {};
+      const mem = UserMemory.profile;
+      if (mem.location) personalContext.location = mem.location;
+      if (mem.lifeStage) personalContext.lifeStage = mem.lifeStage;
+      if (mem.dependents) personalContext.dependents = mem.dependents;
+      if (mem.riskTolerance) personalContext.riskTolerance = mem.riskTolerance;
+      if (mem.runway) personalContext.runway = mem.runway;
+      if (mem.cultural) personalContext.cultural = mem.cultural;
+      const ctx = state.context || {};
+      Object.entries(ctx).forEach(([k, v]) => { if (v) personalContext[k] = v; });
+
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: state.decision,
+          category: state.category,
+          timeHorizon: state.timeHorizon,
+          deadline: state.deadline,
+          personalContext,
+        }),
+      });
+
+      if (!res.ok) throw new Error('API ' + res.status);
+      const data = await res.json();
+
+      if (data.analysis) {
+        addStep('Building your answer');
+        await new Promise(r => setTimeout(r, 400));
+        renderAIResults(data.analysis);
+        autoSaveDecision();
+        showScreen('answer');
+        return;
       }
-    }, 800);
+      throw new Error('No analysis in response');
+    } catch (err) {
+      console.warn('AI analysis unavailable, using local engine:', err.message);
+      addStep('Using local analysis');
+      await new Promise(r => setTimeout(r, 400));
+    }
 
-    // Run analysis after brief delay for animation
-    setTimeout(() => {
-      clearInterval(stepInterval);
-      runAnalysis();
-      autoSaveDecision();
-      showScreen('answer');
-    }, 2800);
+    // Fallback: local engine
+    runLocalAnalysis();
+    autoSaveDecision();
+    showScreen('answer');
   }
 
   // ================================================================

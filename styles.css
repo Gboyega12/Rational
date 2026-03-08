@@ -631,6 +631,31 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Analysis sections — flowing narrative (replaces old accordion cards) */
+.analysis-section {
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  background: var(--dark-2);
+  border: 1px solid var(--white-05);
+  border-radius: var(--radius-lg);
+}
+.analysis-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--white-80);
+  margin-bottom: var(--space-4);
+}
+.analysis-section-title .why-num {
+  flex-shrink: 0;
+}
+.analysis-verdict {
+  border-color: var(--red);
+  border-width: 1px;
+}
+
 /* Scroll reveal */
 .reveal-section {
   opacity: 0; transform: translateY(40px);
