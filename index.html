@@ -11,12 +11,11 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Skip link for keyboard users (WCAG 2.4.1) -->
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <header class="site-header" role="banner">
     <div class="container header-inner">
-      <a href="/" class="logo" aria-label="Rational — home">
+      <a href="/" class="logo" aria-label="Rational — home" id="logo-home">
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true" focusable="false">
           <rect width="28" height="28" rx="6" fill="currentColor" class="logo-bg"/>
           <path d="M8 20L14 8L20 20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -24,14 +23,18 @@
         </svg>
         <span class="logo-text">Rational</span>
       </a>
-      <nav aria-label="Primary">
+      <nav aria-label="Primary" class="nav-actions">
+        <button id="dashboard-btn" class="nav-link" type="button">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+          Dashboard
+        </button>
         <button id="how-it-works-btn" class="nav-link" type="button">How it works</button>
       </nav>
     </div>
   </header>
 
   <main id="main-content">
-    <!-- ====== LANDING SCREEN ====== -->
+    <!-- ====== LANDING ====== -->
     <section id="landing" class="screen active" aria-labelledby="landing-heading">
       <div class="container landing-container">
         <div class="landing-content">
@@ -42,6 +45,14 @@
             Analyze a Decision
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false"><path d="M3.75 9H14.25M14.25 9L9.75 4.5M14.25 9L9.75 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
+
+          <!-- Returning user stats -->
+          <div id="returning-stats" class="returning-stats" hidden>
+            <div class="stat-chip"><span id="stat-decisions">0</span> decisions analyzed</div>
+            <div class="stat-chip"><span id="stat-brier">—</span> Brier score</div>
+            <div class="stat-chip"><span id="stat-streak">0</span> calibrated</div>
+          </div>
+
           <div class="trust-row" aria-label="Powered by 6 mental models">
             <span class="trust-chip">Expected Value</span>
             <span class="trust-chip">Base Rates</span>
@@ -57,7 +68,6 @@
     <!-- ====== WIZARD ====== -->
     <section id="wizard" class="screen" aria-labelledby="wizard-heading">
       <div class="container wizard-container">
-        <!-- Progress stepper -->
         <nav class="stepper" aria-label="Decision analysis steps">
           <ol class="stepper-list">
             <li class="step active" aria-current="step" data-step="1">
@@ -74,7 +84,7 @@
             </li>
             <li class="step" data-step="4">
               <span class="step-number" aria-hidden="true">4</span>
-              <span class="step-label">Biases</span>
+              <span class="step-label">Context</span>
             </li>
           </ol>
         </nav>
@@ -85,7 +95,7 @@
         <div class="wizard-step active" data-wizard-step="1" role="group" aria-labelledby="step1-heading">
           <div class="step-header">
             <h3 id="step1-heading">What decision are you facing?</h3>
-            <p class="step-desc">Describe the decision in plain language. Be as specific as you can — the more context, the sharper the analysis.</p>
+            <p class="step-desc">Describe the decision in plain language. Be specific — precision in, precision out.</p>
           </div>
           <div class="form-group">
             <label for="decision-input" class="sr-only">Your decision or scenario</label>
@@ -93,18 +103,38 @@
             <span id="decision-counter" class="char-counter" aria-live="polite">0 / 1000</span>
           </div>
 
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="decision-category">Category</label>
+              <select id="decision-category" class="input select">
+                <option value="">Select a category</option>
+                <option value="career">Career</option>
+                <option value="finance">Finance / Investment</option>
+                <option value="business">Business / Startup</option>
+                <option value="health">Health</option>
+                <option value="relationship">Relationship</option>
+                <option value="education">Education</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="time-horizon">Time horizon</label>
+              <select id="time-horizon" class="input select">
+                <option value="">How long until impact?</option>
+                <option value="days">Days</option>
+                <option value="weeks">Weeks</option>
+                <option value="months">Months</option>
+                <option value="1year">~1 Year</option>
+                <option value="years">Multiple years</option>
+                <option value="decade">Decade+</option>
+              </select>
+            </div>
+          </div>
+
           <div class="form-group">
-            <label for="decision-category">Category <span class="optional">(optional)</span></label>
-            <select id="decision-category" class="input select">
-              <option value="">Select a category</option>
-              <option value="career">Career</option>
-              <option value="finance">Finance / Investment</option>
-              <option value="business">Business / Startup</option>
-              <option value="health">Health</option>
-              <option value="relationship">Relationship</option>
-              <option value="education">Education</option>
-              <option value="other">Other</option>
-            </select>
+            <label for="decision-deadline">Decision deadline <span class="optional">(optional)</span></label>
+            <input id="decision-deadline" class="input" type="date" aria-describedby="deadline-hint">
+            <span id="deadline-hint" class="input-hint">When must you decide by? We'll track expiry and alert you.</span>
           </div>
 
           <div class="step-actions">
@@ -143,7 +173,7 @@
         <div class="wizard-step" data-wizard-step="3" role="group" aria-labelledby="step3-heading">
           <div class="step-header">
             <h3 id="step3-heading">Define possible outcomes</h3>
-            <p class="step-desc">For each option, add the possible outcomes with their probability (%) and payoff value. Probabilities for each option must add up to 100%.</p>
+            <p class="step-desc">For each option, add outcomes with probability (%) and payoff. Probabilities must sum to 100%.</p>
           </div>
 
           <div id="outcomes-container" class="outcomes-container" aria-label="Outcomes for each option"></div>
@@ -157,11 +187,17 @@
           </div>
         </div>
 
-        <!-- STEP 4 — Bias check -->
+        <!-- STEP 4 — Context & Bias -->
         <div class="wizard-step" data-wizard-step="4" role="group" aria-labelledby="step4-heading">
           <div class="step-header">
             <h3 id="step4-heading">Bias &amp; context check</h3>
-            <p class="step-desc">Answer these quick questions so the engine can flag cognitive biases and adjust the analysis.</p>
+            <p class="step-desc">Answer these so the engine can flag cognitive biases and adjust the analysis.</p>
+          </div>
+
+          <!-- Auto-detected models badge row -->
+          <div id="auto-models" class="auto-models" aria-label="Models automatically selected for this decision">
+            <span class="auto-models-label">Models activated:</span>
+            <div id="auto-models-list" class="auto-models-list"></div>
           </div>
 
           <fieldset class="bias-fieldset">
@@ -184,11 +220,11 @@
           <fieldset class="bias-fieldset">
             <legend>Survivorship Bias Check</legend>
             <div class="form-group">
-              <label for="survivorship-input">Is your confidence in any option based on a specific success story you've seen or heard?</label>
+              <label for="survivorship-input">Is your confidence based on a specific success story?</label>
               <select id="survivorship-input" class="input select">
                 <option value="">Select</option>
                 <option value="no">No — I'm reasoning from broad data</option>
-                <option value="yes">Yes — I know someone (or read about someone) who succeeded this way</option>
+                <option value="yes">Yes — I know someone who succeeded this way</option>
               </select>
             </div>
           </fieldset>
@@ -196,7 +232,7 @@
           <fieldset class="bias-fieldset">
             <legend>Base Rate Anchor</legend>
             <div class="form-group">
-              <label for="base-rate-input">Do you know the general success rate for the type of decision you're making? <span class="optional">(optional)</span></label>
+              <label for="base-rate-input">General success rate for this type of decision? <span class="optional">(optional)</span></label>
               <input id="base-rate-input" class="input" type="number" min="0" max="100" step="1" placeholder="e.g. 15 for 15%">
               <span class="input-hint">Enter an approximate percentage if you know it.</span>
             </div>
@@ -205,9 +241,9 @@
           <fieldset class="bias-fieldset">
             <legend>Kelly Sizing</legend>
             <div class="form-group">
-              <label for="bankroll-input">What's the total amount (money, time, energy) you're willing to allocate to this decision?</label>
+              <label for="bankroll-input">Total bankroll you're willing to allocate?</label>
               <input id="bankroll-input" class="input" type="number" min="0" step="1" placeholder="e.g. 50000">
-              <span class="input-hint">This can be a dollar amount, hours, or any unit — it's used for sizing the optimal allocation.</span>
+              <span class="input-hint">Dollar amount, hours, or any unit — used for optimal allocation sizing.</span>
             </div>
           </fieldset>
 
@@ -228,7 +264,11 @@
         <div class="results-header">
           <h2 id="results-heading">Analysis Complete</h2>
           <p id="results-decision-summary" class="results-summary"></p>
+          <div id="results-models-used" class="models-used-row"></div>
         </div>
+
+        <!-- Expiry warning -->
+        <div id="expiry-banner" class="expiry-banner" hidden role="alert"></div>
 
         <!-- Recommendation banner -->
         <div id="recommendation-banner" class="recommendation-banner" role="status" aria-live="polite"></div>
@@ -247,6 +287,19 @@
             <summary>Show calculation</summary>
             <pre id="ev-math" class="math-block"></pre>
           </details>
+        </div>
+
+        <!-- Sensitivity Analysis -->
+        <div class="result-card" aria-labelledby="sensitivity-card-heading">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 17h14M5 13V7M10 13V4M15 13V9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="5" cy="10" r="2" fill="currentColor"/><circle cx="10" cy="8" r="2" fill="currentColor"/><circle cx="15" cy="11" r="2" fill="currentColor"/></svg>
+            </span>
+            <h3 id="sensitivity-card-heading">Sensitivity Analysis</h3>
+          </div>
+          <p class="card-desc">Drag sliders to see how probability changes affect the recommendation. Tests how robust your conclusion is.</p>
+          <div id="sensitivity-sliders" class="sensitivity-sliders"></div>
+          <div id="sensitivity-result" class="sensitivity-result" aria-live="polite"></div>
         </div>
 
         <!-- Bayesian insight -->
@@ -273,7 +326,7 @@
             </span>
             <h3 id="kelly-card-heading">Kelly Criterion — Optimal Sizing</h3>
           </div>
-          <p class="card-desc">How much of your total bankroll to allocate, using quarter-Kelly for safety.</p>
+          <p class="card-desc">How much of your bankroll to allocate, using quarter-Kelly for safety.</p>
           <div id="kelly-results" class="kelly-results"></div>
           <details class="math-details">
             <summary>Show calculation</summary>
@@ -292,15 +345,137 @@
           <ul id="bias-warnings" class="bias-list" role="list"></ul>
         </div>
 
+        <!-- Personal bias profile (shown if history exists) -->
+        <div id="personal-bias-card" class="result-card card-profile" hidden aria-labelledby="profile-card-heading">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M2 18c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.6"/></svg>
+            </span>
+            <h3 id="profile-card-heading">Your Bias Profile</h3>
+          </div>
+          <p class="card-desc">Patterns detected across your decision history.</p>
+          <div id="bias-profile-content" class="bias-profile-content"></div>
+        </div>
+
         <div class="results-actions">
           <button type="button" class="btn btn-ghost" id="start-over-btn">Start Over</button>
           <button type="button" class="btn btn-outline" id="export-btn">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false"><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Export as Text
+            Export
+          </button>
+          <button type="button" class="btn btn-primary" id="save-decision-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false"><path d="M2 2h9l3 3v9H2V2z" stroke="currentColor" stroke-width="1.4"/><path d="M5 2v4h5V2M4 9h8" stroke="currentColor" stroke-width="1.2"/></svg>
+            Save Decision
           </button>
         </div>
       </div>
     </section>
+
+    <!-- ====== DASHBOARD ====== -->
+    <section id="dashboard" class="screen" aria-labelledby="dashboard-heading">
+      <div class="container dashboard-container">
+        <div class="dashboard-header">
+          <h2 id="dashboard-heading">Your Decision Dashboard</h2>
+          <p class="step-desc">Your compounding rationality data. Every decision makes you sharper.</p>
+        </div>
+
+        <!-- Stats row -->
+        <div class="dashboard-stats" role="group" aria-label="Decision statistics">
+          <div class="dash-stat">
+            <span class="dash-stat-value" id="dash-total">0</span>
+            <span class="dash-stat-label">Decisions</span>
+          </div>
+          <div class="dash-stat">
+            <span class="dash-stat-value" id="dash-calibrated">0</span>
+            <span class="dash-stat-label">Outcomes logged</span>
+          </div>
+          <div class="dash-stat">
+            <span class="dash-stat-value" id="dash-brier">—</span>
+            <span class="dash-stat-label">Brier Score</span>
+          </div>
+          <div class="dash-stat">
+            <span class="dash-stat-value" id="dash-accuracy">—</span>
+            <span class="dash-stat-label">Accuracy</span>
+          </div>
+        </div>
+
+        <!-- Calibration explanation -->
+        <div class="calibration-explainer">
+          <h3>Calibration Score</h3>
+          <p>Your Brier score measures how close your probability estimates are to reality. <strong>0.0 = perfect</strong>, 0.25 = coin flip, >0.25 = worse than guessing. Log outcomes on past decisions to build your score.</p>
+        </div>
+
+        <!-- Bias profile summary -->
+        <div class="result-card" aria-labelledby="dash-bias-heading">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M2 18c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.6"/></svg>
+            </span>
+            <h3 id="dash-bias-heading">Your Bias Profile</h3>
+          </div>
+          <div id="dash-bias-profile" class="bias-profile-content">
+            <p class="empty-state">Analyze a few decisions to start building your profile.</p>
+          </div>
+        </div>
+
+        <!-- Expiring decisions -->
+        <div id="expiring-section" class="result-card" hidden aria-labelledby="expiring-heading">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true" style="color:var(--color-warning)">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M10 6v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <h3 id="expiring-heading">Expiring Decisions</h3>
+          </div>
+          <div id="expiring-list" class="history-list"></div>
+        </div>
+
+        <!-- Decision history -->
+        <div class="result-card" aria-labelledby="history-heading">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 3h14v14H3V3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M3 7h14M7 7v10" stroke="currentColor" stroke-width="1.2"/></svg>
+            </span>
+            <h3 id="history-heading">Decision History</h3>
+          </div>
+          <div id="history-list" class="history-list">
+            <p class="empty-state">No decisions saved yet. Analyze and save your first decision.</p>
+          </div>
+        </div>
+
+        <div class="results-actions">
+          <button type="button" class="btn btn-ghost" id="dash-back-btn">Back to Home</button>
+          <button type="button" class="btn btn-outline" id="clear-data-btn">Clear All Data</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Outcome logging modal -->
+    <dialog id="outcome-modal" class="modal" aria-labelledby="outcome-modal-heading">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="outcome-modal-heading">Log Outcome</h2>
+          <button type="button" class="modal-close" aria-label="Close dialog" id="outcome-modal-close">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p id="outcome-modal-decision" class="outcome-modal-decision"></p>
+          <div class="form-group">
+            <label for="outcome-which-option">Which option did you choose?</label>
+            <select id="outcome-which-option" class="input select"></select>
+          </div>
+          <div class="form-group">
+            <label for="outcome-which-result">What actually happened?</label>
+            <select id="outcome-which-result" class="input select"></select>
+          </div>
+          <div class="form-group">
+            <label for="outcome-actual-payoff">Actual payoff <span class="optional">(optional)</span></label>
+            <input id="outcome-actual-payoff" class="input" type="number" step="1" placeholder="e.g. 75000">
+          </div>
+          <button type="button" class="btn btn-primary" id="log-outcome-btn" style="width:100%">Log Outcome &amp; Update Calibration</button>
+        </div>
+      </div>
+    </dialog>
 
     <!-- How it works modal -->
     <dialog id="how-it-works-modal" class="modal" aria-labelledby="modal-heading">
@@ -314,16 +489,16 @@
         <div class="modal-body">
           <div class="model-card">
             <h3>Expected Value (EV)</h3>
-            <p>Multiply each outcome's probability by its payoff, then sum them up. The option with the highest EV is mathematically the best choice on average.</p>
+            <p>Multiply each outcome's probability by its payoff, then sum. The option with the highest EV is mathematically the best choice on average.</p>
             <code>EV = &Sigma;(probability &times; payoff)</code>
           </div>
           <div class="model-card">
             <h3>Base Rate Neglect</h3>
-            <p>Before trusting a specific signal, check how common the outcome is in the general population. A 99%-accurate test means nothing if the condition is 1-in-1000.</p>
+            <p>Before trusting a signal, check how common the outcome is in the general population. A 99%-accurate test means nothing if the condition is 1-in-1000.</p>
           </div>
           <div class="model-card">
             <h3>Sunk Cost Fallacy</h3>
-            <p>Past investments (time, money, emotion) are gone. Only future value matters. Would you make this same choice starting fresh today?</p>
+            <p>Past investments are gone. Only future value matters. Would you make this same choice starting fresh today?</p>
           </div>
           <div class="model-card">
             <h3>Bayesian Thinking</h3>
@@ -338,6 +513,15 @@
             <h3>Kelly Criterion</h3>
             <p>When you have an edge, Kelly tells you exactly how much to bet. Professionals use quarter-Kelly for safety.</p>
             <code>f* = (p &times; b - q) / b</code>
+          </div>
+          <div class="model-card">
+            <h3>Sensitivity Analysis</h3>
+            <p>What if your probabilities are wrong? Sensitivity testing shows you how much they'd need to change before the best option flips.</p>
+          </div>
+          <div class="model-card">
+            <h3>Calibration (Brier Score)</h3>
+            <p>Over time, we measure your predicted probabilities against actual outcomes. A Brier score of 0 is perfect; 0.25 is random guessing.</p>
+            <code>Brier = (1/N) &times; &Sigma;(forecast - outcome)&sup2;</code>
           </div>
         </div>
       </div>
