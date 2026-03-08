@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Rational — a decision engine that uses Expected Value, Bayesian reasoning, Kelly Criterion and more to help you make mathematically sound decisions.">
+  <title>Rational — Make Better Decisions With Math</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Skip link for keyboard users (WCAG 2.4.1) -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header class="site-header" role="banner">
+    <div class="container header-inner">
+      <a href="/" class="logo" aria-label="Rational — home">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true" focusable="false">
+          <rect width="28" height="28" rx="6" fill="currentColor" class="logo-bg"/>
+          <path d="M8 20L14 8L20 20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="14" cy="14" r="2" fill="#fff"/>
+        </svg>
+        <span class="logo-text">Rational</span>
+      </a>
+      <nav aria-label="Primary">
+        <button id="how-it-works-btn" class="nav-link" type="button">How it works</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <!-- ====== LANDING SCREEN ====== -->
+    <section id="landing" class="screen active" aria-labelledby="landing-heading">
+      <div class="container landing-container">
+        <div class="landing-content">
+          <p class="eyebrow">Decision Engine</p>
+          <h1 id="landing-heading">Stop guessing.<br>Start calculating.</h1>
+          <p class="subtitle">Describe any decision you're facing and Rational will walk you through the math — Expected Value, base rates, Bayesian updates, Kelly sizing — so you can see clearly what your gut can't.</p>
+          <button id="start-btn" class="btn btn-primary btn-lg" type="button">
+            Analyze a Decision
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false"><path d="M3.75 9H14.25M14.25 9L9.75 4.5M14.25 9L9.75 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="trust-row" aria-label="Powered by 6 mental models">
+            <span class="trust-chip">Expected Value</span>
+            <span class="trust-chip">Base Rates</span>
+            <span class="trust-chip">Sunk Cost</span>
+            <span class="trust-chip">Bayes' Theorem</span>
+            <span class="trust-chip">Survivorship Bias</span>
+            <span class="trust-chip">Kelly Criterion</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== WIZARD ====== -->
+    <section id="wizard" class="screen" aria-labelledby="wizard-heading">
+      <div class="container wizard-container">
+        <!-- Progress stepper -->
+        <nav class="stepper" aria-label="Decision analysis steps">
+          <ol class="stepper-list">
+            <li class="step active" aria-current="step" data-step="1">
+              <span class="step-number" aria-hidden="true">1</span>
+              <span class="step-label">Describe</span>
+            </li>
+            <li class="step" data-step="2">
+              <span class="step-number" aria-hidden="true">2</span>
+              <span class="step-label">Options</span>
+            </li>
+            <li class="step" data-step="3">
+              <span class="step-number" aria-hidden="true">3</span>
+              <span class="step-label">Outcomes</span>
+            </li>
+            <li class="step" data-step="4">
+              <span class="step-number" aria-hidden="true">4</span>
+              <span class="step-label">Biases</span>
+            </li>
+          </ol>
+        </nav>
+
+        <h2 id="wizard-heading" class="sr-only">Decision Analysis Wizard</h2>
+
+        <!-- STEP 1 — Describe -->
+        <div class="wizard-step active" data-wizard-step="1" role="group" aria-labelledby="step1-heading">
+          <div class="step-header">
+            <h3 id="step1-heading">What decision are you facing?</h3>
+            <p class="step-desc">Describe the decision in plain language. Be as specific as you can — the more context, the sharper the analysis.</p>
+          </div>
+          <div class="form-group">
+            <label for="decision-input" class="sr-only">Your decision or scenario</label>
+            <textarea id="decision-input" class="input textarea" rows="4" placeholder='e.g. "Should I leave my $120K job to join an early-stage startup offering $90K + 1% equity?"' maxlength="1000" aria-describedby="decision-counter"></textarea>
+            <span id="decision-counter" class="char-counter" aria-live="polite">0 / 1000</span>
+          </div>
+
+          <div class="form-group">
+            <label for="decision-category">Category <span class="optional">(optional)</span></label>
+            <select id="decision-category" class="input select">
+              <option value="">Select a category</option>
+              <option value="career">Career</option>
+              <option value="finance">Finance / Investment</option>
+              <option value="business">Business / Startup</option>
+              <option value="health">Health</option>
+              <option value="relationship">Relationship</option>
+              <option value="education">Education</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="step-actions">
+            <button type="button" class="btn btn-ghost" id="back-to-landing">Cancel</button>
+            <button type="button" class="btn btn-primary next-step" data-next="2" disabled>
+              Continue
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false"><path d="M3.75 9H14.25M14.25 9L9.75 4.5M14.25 9L9.75 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 2 — Options -->
+        <div class="wizard-step" data-wizard-step="2" role="group" aria-labelledby="step2-heading">
+          <div class="step-header">
+            <h3 id="step2-heading">What are your options?</h3>
+            <p class="step-desc">Add at least two options you're considering. Name each one clearly.</p>
+          </div>
+
+          <div id="options-list" class="options-list" aria-label="Decision options"></div>
+
+          <button type="button" class="btn btn-outline add-option-btn" id="add-option-btn" aria-label="Add another option">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Add Option
+          </button>
+
+          <div class="step-actions">
+            <button type="button" class="btn btn-ghost prev-step" data-prev="1">Back</button>
+            <button type="button" class="btn btn-primary next-step" data-next="3" disabled>
+              Continue
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false"><path d="M3.75 9H14.25M14.25 9L9.75 4.5M14.25 9L9.75 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 3 — Outcomes -->
+        <div class="wizard-step" data-wizard-step="3" role="group" aria-labelledby="step3-heading">
+          <div class="step-header">
+            <h3 id="step3-heading">Define possible outcomes</h3>
+            <p class="step-desc">For each option, add the possible outcomes with their probability (%) and payoff value. Probabilities for each option must add up to 100%.</p>
+          </div>
+
+          <div id="outcomes-container" class="outcomes-container" aria-label="Outcomes for each option"></div>
+
+          <div class="step-actions">
+            <button type="button" class="btn btn-ghost prev-step" data-prev="2">Back</button>
+            <button type="button" class="btn btn-primary next-step" data-next="4" disabled>
+              Continue
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false"><path d="M3.75 9H14.25M14.25 9L9.75 4.5M14.25 9L9.75 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 4 — Bias check -->
+        <div class="wizard-step" data-wizard-step="4" role="group" aria-labelledby="step4-heading">
+          <div class="step-header">
+            <h3 id="step4-heading">Bias &amp; context check</h3>
+            <p class="step-desc">Answer these quick questions so the engine can flag cognitive biases and adjust the analysis.</p>
+          </div>
+
+          <fieldset class="bias-fieldset">
+            <legend>Sunk Cost Check</legend>
+            <div class="form-group">
+              <label for="sunk-cost-input">Have you already invested significant time, money, or effort into one of these options?</label>
+              <select id="sunk-cost-input" class="input select">
+                <option value="">Select</option>
+                <option value="none">No significant prior investment</option>
+                <option value="moderate">Some investment, but manageable</option>
+                <option value="heavy">Heavy investment — it's hard to walk away</option>
+              </select>
+            </div>
+            <div class="form-group" id="sunk-cost-option-group" hidden>
+              <label for="sunk-cost-which">Which option have you invested in?</label>
+              <select id="sunk-cost-which" class="input select"></select>
+            </div>
+          </fieldset>
+
+          <fieldset class="bias-fieldset">
+            <legend>Survivorship Bias Check</legend>
+            <div class="form-group">
+              <label for="survivorship-input">Is your confidence in any option based on a specific success story you've seen or heard?</label>
+              <select id="survivorship-input" class="input select">
+                <option value="">Select</option>
+                <option value="no">No — I'm reasoning from broad data</option>
+                <option value="yes">Yes — I know someone (or read about someone) who succeeded this way</option>
+              </select>
+            </div>
+          </fieldset>
+
+          <fieldset class="bias-fieldset">
+            <legend>Base Rate Anchor</legend>
+            <div class="form-group">
+              <label for="base-rate-input">Do you know the general success rate for the type of decision you're making? <span class="optional">(optional)</span></label>
+              <input id="base-rate-input" class="input" type="number" min="0" max="100" step="1" placeholder="e.g. 15 for 15%">
+              <span class="input-hint">Enter an approximate percentage if you know it.</span>
+            </div>
+          </fieldset>
+
+          <fieldset class="bias-fieldset">
+            <legend>Kelly Sizing</legend>
+            <div class="form-group">
+              <label for="bankroll-input">What's the total amount (money, time, energy) you're willing to allocate to this decision?</label>
+              <input id="bankroll-input" class="input" type="number" min="0" step="1" placeholder="e.g. 50000">
+              <span class="input-hint">This can be a dollar amount, hours, or any unit — it's used for sizing the optimal allocation.</span>
+            </div>
+          </fieldset>
+
+          <div class="step-actions">
+            <button type="button" class="btn btn-ghost prev-step" data-prev="3">Back</button>
+            <button type="button" class="btn btn-primary" id="run-analysis-btn">
+              Run Analysis
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false"><path d="M4 8h8M8 4v8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== RESULTS ====== -->
+    <section id="results" class="screen" aria-labelledby="results-heading">
+      <div class="container results-container">
+        <div class="results-header">
+          <h2 id="results-heading">Analysis Complete</h2>
+          <p id="results-decision-summary" class="results-summary"></p>
+        </div>
+
+        <!-- Recommendation banner -->
+        <div id="recommendation-banner" class="recommendation-banner" role="status" aria-live="polite"></div>
+
+        <!-- EV Comparison -->
+        <div class="result-card" aria-labelledby="ev-card-heading">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="10" width="4" height="8" rx="1" fill="currentColor" opacity=".4"/><rect x="8" y="6" width="4" height="12" rx="1" fill="currentColor" opacity=".7"/><rect x="14" y="2" width="4" height="16" rx="1" fill="currentColor"/></svg>
+            </span>
+            <h3 id="ev-card-heading">Expected Value Comparison</h3>
+          </div>
+          <p class="card-desc">Each option's weighted average payoff across all possible outcomes.</p>
+          <div id="ev-results" class="ev-results"></div>
+          <details class="math-details">
+            <summary>Show calculation</summary>
+            <pre id="ev-math" class="math-block"></pre>
+          </details>
+        </div>
+
+        <!-- Bayesian insight -->
+        <div class="result-card" aria-labelledby="bayes-card-heading">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6" opacity=".4"/><path d="M10 2a8 8 0 0 1 0 16" fill="currentColor" opacity=".7"/></svg>
+            </span>
+            <h3 id="bayes-card-heading">Bayesian Confidence</h3>
+          </div>
+          <p class="card-desc">How base rates and your evidence shift the real probability of success.</p>
+          <div id="bayes-results" class="bayes-results"></div>
+          <details class="math-details">
+            <summary>Show calculation</summary>
+            <pre id="bayes-math" class="math-block"></pre>
+          </details>
+        </div>
+
+        <!-- Kelly -->
+        <div class="result-card" aria-labelledby="kelly-card-heading">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M10 10L10 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10 10L15 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </span>
+            <h3 id="kelly-card-heading">Kelly Criterion — Optimal Sizing</h3>
+          </div>
+          <p class="card-desc">How much of your total bankroll to allocate, using quarter-Kelly for safety.</p>
+          <div id="kelly-results" class="kelly-results"></div>
+          <details class="math-details">
+            <summary>Show calculation</summary>
+            <pre id="kelly-math" class="math-block"></pre>
+          </details>
+        </div>
+
+        <!-- Bias warnings -->
+        <div class="result-card card-warning" aria-labelledby="bias-card-heading">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2L1 18h18L10 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v4M10 14.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </span>
+            <h3 id="bias-card-heading">Cognitive Bias Warnings</h3>
+          </div>
+          <ul id="bias-warnings" class="bias-list" role="list"></ul>
+        </div>
+
+        <div class="results-actions">
+          <button type="button" class="btn btn-ghost" id="start-over-btn">Start Over</button>
+          <button type="button" class="btn btn-outline" id="export-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false"><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Export as Text
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works modal -->
+    <dialog id="how-it-works-modal" class="modal" aria-labelledby="modal-heading">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modal-heading">How Rational Works</h2>
+          <button type="button" class="modal-close" aria-label="Close dialog" id="modal-close-btn">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="model-card">
+            <h3>Expected Value (EV)</h3>
+            <p>Multiply each outcome's probability by its payoff, then sum them up. The option with the highest EV is mathematically the best choice on average.</p>
+            <code>EV = &Sigma;(probability &times; payoff)</code>
+          </div>
+          <div class="model-card">
+            <h3>Base Rate Neglect</h3>
+            <p>Before trusting a specific signal, check how common the outcome is in the general population. A 99%-accurate test means nothing if the condition is 1-in-1000.</p>
+          </div>
+          <div class="model-card">
+            <h3>Sunk Cost Fallacy</h3>
+            <p>Past investments (time, money, emotion) are gone. Only future value matters. Would you make this same choice starting fresh today?</p>
+          </div>
+          <div class="model-card">
+            <h3>Bayesian Thinking</h3>
+            <p>Update your beliefs proportionally to new evidence. Don't ignore it, don't overreact — nudge your estimate mathematically.</p>
+            <code>P(A|B) = P(B|A) &times; P(A) / P(B)</code>
+          </div>
+          <div class="model-card">
+            <h3>Survivorship Bias</h3>
+            <p>You only see the winners. Ask for the denominator — how many tried and failed? The graveyard is invisible but enormous.</p>
+          </div>
+          <div class="model-card">
+            <h3>Kelly Criterion</h3>
+            <p>When you have an edge, Kelly tells you exactly how much to bet. Professionals use quarter-Kelly for safety.</p>
+            <code>f* = (p &times; b - q) / b</code>
+          </div>
+        </div>
+      </div>
+    </dialog>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="container footer-inner">
+      <p>&copy; 2026 Rational. Decisions backed by math, not vibes.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
