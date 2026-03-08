@@ -1182,4 +1182,30 @@
     if (e.target === howModal) howModal.close();
   });
 
+  // ================================================================
+  // PWA — Service Worker + Shortcuts + Install Prompt
+  // ================================================================
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+
+  // Handle PWA shortcut actions (?action=new / ?action=dashboard)
+  const urlParams = new URLSearchParams(window.location.search);
+  const action = urlParams.get('action');
+  if (action === 'new') {
+    showScreen('wizard');
+    showStep(1);
+    seedOptions();
+    state.currentDecisionId = null;
+    setTimeout(() => decisionInput.focus(), 100);
+    // Clean URL without reloading
+    window.history.replaceState({}, '', '/');
+  } else if (action === 'dashboard') {
+    renderDashboard();
+    showScreen('dashboard');
+    window.history.replaceState({}, '', '/');
+  }
+
 })();

@@ -1,0 +1,12 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Maskable: safe zone is inner 80% (inset 19.2px each side) -->
+  <rect width="192" height="192" fill="#F5F5F7"/>
+  <path d="M96 48L56 144h80L96 48z" fill="url(#g)"/>
+  <circle cx="96" cy="104" r="10" fill="#fff"/>
+  <defs>
+    <linearGradient id="g" x1="56" y1="144" x2="136" y2="48">
+      <stop stop-color="#007AFF"/>
+      <stop offset="1" stop-color="#5856D6"/>
+    </linearGradient>
+  </defs>
+</svg>
