@@ -299,6 +299,31 @@ body {
   padding: 3px 8px; border-radius: 3px; margin-left: 8px;
 }
 
+/* Accuracy disclaimer banner */
+.ai-disclaimer {
+  font-size: var(--text-xs); color: var(--text-dim);
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px; padding: 10px 14px; margin: 12px 0 20px;
+  line-height: 1.5; letter-spacing: 0.01em;
+}
+
+/* Confidence badges */
+.confidence-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 2px 8px; border-radius: 3px;
+  margin-bottom: 10px;
+}
+.confidence-high {
+  color: #4ade80; background: rgba(74,222,128,0.1);
+}
+.confidence-medium {
+  color: #fbbf24; background: rgba(251,191,36,0.1);
+}
+.confidence-low {
+  color: var(--red); background: var(--red-dim);
+}
+
 /* Bullet lists in AI narrative */
 .narrative ul { list-style: none; margin: var(--space-3) 0; padding: 0; }
 .narrative ul li {

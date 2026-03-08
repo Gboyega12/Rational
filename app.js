@@ -767,6 +767,12 @@
     }
   });
 
+  function confidenceBadge(level) {
+    if (!level) return '';
+    const labels = { high: 'High confidence', medium: 'Verify numbers', low: 'Rough estimate' };
+    return `<span class="confidence-badge confidence-${level}" title="${labels[level] || level}">${labels[level] || level}</span>`;
+  }
+
   function renderAIResults(ai) {
     // Hide loading
     $('#ai-loading').hidden = true;
@@ -776,10 +782,22 @@
     $('.verdict-heading').innerHTML = escapeHtml(ai.verdict?.title || 'Analysis complete') + '<span class="ai-badge">AI</span>';
     $('#verdict-sub').textContent = ai.verdict?.subtitle || '';
 
+    // Accuracy disclaimer
+    const disclaimerEl = document.getElementById('ai-disclaimer');
+    if (disclaimerEl) disclaimerEl.remove();
+    const disclaimer = document.createElement('div');
+    disclaimer.id = 'ai-disclaimer';
+    disclaimer.className = 'ai-disclaimer';
+    disclaimer.innerHTML = 'Numbers are AI estimates sourced from public data. Always verify critical figures (salaries, costs, rates) against official sources before making final decisions.';
+    const verdictEl = $('.verdict-heading');
+    if (verdictEl && verdictEl.parentElement) {
+      verdictEl.parentElement.insertBefore(disclaimer, verdictEl.nextSibling?.nextSibling || null);
+    }
+
     // Section 1: Expected Value
     if (ai.ev) {
       const evEl = $('#ev-narrative');
-      let evHtml = '';
+      let evHtml = confidenceBadge(ai.ev.confidence);
       if (ai.ev.sections) {
         ai.ev.sections.forEach(sec => {
           evHtml += `<div class="ev-option-block"><h4>${escapeHtml(sec.optionName)}</h4>`;
@@ -821,7 +839,7 @@
 
     // Section 2: Base Rate
     if (ai.baseRate) {
-      let brHtml = '';
+      let brHtml = confidenceBadge(ai.baseRate.confidence);
       if (ai.baseRate.bullets && ai.baseRate.bullets.length) {
         brHtml += '<ul>' + ai.baseRate.bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('') + '</ul>';
       }
@@ -835,12 +853,12 @@
 
     // Section 3: Sunk Cost
     if (ai.sunkCost) {
-      $('#sunk-narrative').innerHTML = `<div class="narrative">${ai.sunkCost.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('')}</div>`;
+      $('#sunk-narrative').innerHTML = confidenceBadge(ai.sunkCost.confidence) + `<div class="narrative">${ai.sunkCost.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('')}</div>`;
     }
 
     // Section 4: Bayesian Update
     if (ai.bayesian) {
-      let bayesHtml = '';
+      let bayesHtml = confidenceBadge(ai.bayesian.confidence);
       if (ai.bayesian.prior) bayesHtml += `<p><strong>Prior:</strong> ${escapeHtml(ai.bayesian.prior)}</p>`;
       if (ai.bayesian.evidence && ai.bayesian.evidence.length) {
         bayesHtml += '<p><strong>New evidence:</strong></p><ul>' + ai.bayesian.evidence.map(e => `<li>${escapeHtml(e)}</li>`).join('') + '</ul>';
@@ -852,12 +870,12 @@
 
     // Section 5: Survivorship
     if (ai.survivorship) {
-      $('#surv-narrative').innerHTML = ai.survivorship.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('');
+      $('#surv-narrative').innerHTML = confidenceBadge(ai.survivorship.confidence) + ai.survivorship.narrative.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '').join('');
     }
 
     // Section 6: Kelly
     if (ai.kelly) {
-      let kellyHtml = '';
+      let kellyHtml = confidenceBadge(ai.kelly.confidence);
       if (ai.kelly.currentAllocation) {
         kellyHtml += `<p>${escapeHtml(ai.kelly.currentAllocation)}</p>`;
       }

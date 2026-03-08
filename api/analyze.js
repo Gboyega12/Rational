@@ -29,6 +29,14 @@ IMPORTANT RULES:
 - Use bullet points for data, prose for analysis.
 - Currency/units: match whatever the user uses. If unclear, use $.
 
+ACCURACY RULES — CRITICAL:
+- NEVER fabricate or guess specific numbers (salaries, prices, rates, percentages). If you are not confident in a specific figure, give a realistic range instead (e.g. "£22K–£28K" not "£40K").
+- For salary/income figures: use conservative, median values typical for the specific role, region, and experience level. A UK labourer earns ~£25K, not £40K. A junior dev in London earns ~£30K–£35K, not £60K. Always think: "what would the MEDIAN person in this exact role actually earn?"
+- For every specific number you cite, add the source in parentheses — e.g. "(ONS 2024)", "(BLS median)", "(industry average per Glassdoor)". If you cannot name a source, say "estimated" or give a range.
+- Prefer well-known benchmarks: government statistics (ONS, BLS, ABS), industry reports, large survey data. Avoid obscure or made-up sources.
+- When in doubt, round DOWN rather than up. Overestimating costs the user real money in bad decisions.
+- Your confidence field for each section must honestly reflect how certain you are about the numbers used: "high" = based on well-known statistics, "medium" = reasonable estimate from general knowledge, "low" = rough approximation, verify before acting.
+
 Return ONLY valid JSON in this exact structure (no markdown, no code fences):
 {
   "verdict": {
@@ -37,10 +45,11 @@ Return ONLY valid JSON in this exact structure (no markdown, no code fences):
   },
   "ev": {
     "title": "Expected Value — what does the math say?",
+    "confidence": "high/medium/low",
     "sections": [
       {
         "optionName": "Option A name",
-        "bullets": ["bullet point 1", "bullet point 2", "..."],
+        "bullets": ["bullet point 1 (source)", "bullet point 2 (source)", "..."],
         "evCalculation": "EV = ... = $X",
         "evValue": 12345
       }
@@ -49,25 +58,30 @@ Return ONLY valid JSON in this exact structure (no markdown, no code fences):
   },
   "baseRate": {
     "title": "Base Rate — what does the denominator say?",
-    "bullets": ["research-backed bullet 1", "..."],
+    "confidence": "high/medium/low",
+    "bullets": ["research-backed bullet with (source)", "..."],
     "conclusion": "Base rate verdict sentence"
   },
   "sunkCost": {
     "title": "Sunk Cost — what should you ignore?",
+    "confidence": "high/medium/low",
     "narrative": "Full paragraph(s) analyzing sunk costs in their specific situation. Identify what they've already spent that's irrecoverable and how it might be distorting their thinking."
   },
   "bayesian": {
     "title": "Bayesian Update — how should new evidence shift your view?",
+    "confidence": "high/medium/low",
     "prior": "What they likely believed before",
-    "evidence": ["New evidence point 1", "New evidence point 2", "..."],
+    "evidence": ["New evidence point 1 (source)", "New evidence point 2 (source)", "..."],
     "posterior": "How the probability should shift and why"
   },
   "survivorship": {
     "title": "Survivorship Bias — are you pattern-matching to the wrong survivors?",
+    "confidence": "high/medium/low",
     "narrative": "Who they might be comparing to, why that's misleading, who the RIGHT comparison cohort is"
   },
   "kelly": {
     "title": "Kelly Criterion — how much should you bet?",
+    "confidence": "high/medium/low",
     "currentAllocation": "How they're currently splitting resources",
     "recommendations": [
       { "action": "Stop/Reduce/Double down", "target": "what", "reason": "why" }
