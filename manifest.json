@@ -4,8 +4,8 @@
   "description": "Make better decisions using simple math. No guessing, no overthinking — just clarity.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F5F5F7",
-  "theme_color": "#ffffff",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "any",
   "categories": ["productivity", "utilities", "education"],
   "icons": [
