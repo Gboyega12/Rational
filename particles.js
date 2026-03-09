@@ -235,8 +235,6 @@
       if (e.touches[0]) {
         mouseX = e.touches[0].clientX;
         mouseY = e.touches[0].clientY;
-        // Touch ripple
-        spawnTouchRipple(mouseX, mouseY);
       }
     }, { passive: true });
     document.addEventListener('touchend', () => {
@@ -282,27 +280,7 @@
   // ================================================================
   // TOUCH RIPPLE
   // ================================================================
-  const ripples = [];
-
-  function spawnTouchRipple(x, y) {
-    ripples.push({ x, y, radius: 0, maxRadius: 150, life: 1 });
-  }
-
-  function updateRipples() {
-    if (!cursorGraphics) return;
-    for (let i = ripples.length - 1; i >= 0; i--) {
-      const r = ripples[i];
-      r.radius += (r.maxRadius - r.radius) * 0.08;
-      r.life -= 0.025;
-      if (r.life <= 0) {
-        ripples.splice(i, 1);
-        continue;
-      }
-      cursorGraphics.lineStyle(1.5, CONFIG.colors.mustard, r.life * 0.3);
-      cursorGraphics.drawCircle(r.x, r.y, r.radius);
-      cursorGraphics.lineStyle(0);
-    }
-  }
+  // Touch ripple removed — was distracting and fought with content visibility
 
   // ================================================================
   // INTERACTIVE REPULSION — dots flee from cursor
@@ -907,7 +885,6 @@
     // Interactive effects
     applyMouseRepulsion();
     updateCursorTrail();
-    updateRipples();
   }
 
   // ================================================================

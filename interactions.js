@@ -247,6 +247,63 @@
           osc.stop(now + 0.1);
           break;
         }
+
+        case 'door': {
+          // Door card tap — satisfying thunk + ascending tone
+          const osc1 = audioCtx.createOscillator();
+          const osc2 = audioCtx.createOscillator();
+          const gain1 = audioCtx.createGain();
+          const gain2 = audioCtx.createGain();
+          // Low thunk
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(120, now);
+          osc1.frequency.exponentialRampToValueAtTime(60, now + 0.1);
+          gain1.gain.setValueAtTime(0.1, now);
+          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc1.connect(gain1).connect(audioCtx.destination);
+          osc1.start(now);
+          osc1.stop(now + 0.12);
+          // High confirmation ping
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(880, now + 0.05);
+          osc2.frequency.exponentialRampToValueAtTime(1100, now + 0.15);
+          gain2.gain.setValueAtTime(0.06, now + 0.05);
+          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          osc2.connect(gain2).connect(audioCtx.destination);
+          osc2.start(now + 0.05);
+          osc2.stop(now + 0.2);
+          break;
+        }
+
+        case 'send': {
+          // Send button — quick upward sweep
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(400, now);
+          osc.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
+          gain.gain.setValueAtTime(0.07, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc.connect(gain).connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.12);
+          break;
+        }
+
+        case 'mic': {
+          // Mic button — warm pulse
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, now);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.setValueAtTime(0.08, now + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          osc.connect(gain).connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.2);
+          break;
+        }
       }
     } catch (e) {
       // Silently fail — sound is optional
@@ -255,18 +312,38 @@
 
   // Wire sounds to UI events
   function wireUpSounds() {
-    // Card hovers
+    // Door card hovers (desktop) + taps
     document.querySelectorAll('.home-door').forEach(card => {
       card.addEventListener('mouseenter', () => playSound('hover'));
+      card.addEventListener('click', () => playSound('door'));
     });
 
-    // Button clicks
+    // Mic button
+    const micBtn = document.getElementById('mic-btn');
+    if (micBtn) {
+      micBtn.addEventListener('click', () => playSound('mic'));
+    }
+
+    // Send button
+    const sendBtn = document.querySelector('.send-btn');
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => playSound('send'));
+    }
+
+    // Generic buttons — soft tick
     document.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (!btn.classList.contains('home-door')) {
-          playSound('tick');
-        }
-      });
+      if (btn.classList.contains('home-door') || btn === micBtn || btn === sendBtn || btn.id === 'sound-toggle') return;
+      btn.addEventListener('click', () => playSound('tick'));
+    });
+
+    // Also wire up dynamically: use event delegation for buttons added later
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      // Check for specific button types added dynamically
+      if (btn.classList.contains('btn-primary-full') || btn.classList.contains('send-btn')) {
+        playSound('send');
+      }
     });
   }
 
