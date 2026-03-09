@@ -2764,7 +2764,7 @@
   });
 
   // ================================================================
-  // WALLET — Coin system
+  // WALLET — Coin system (full-screen page)
   // ================================================================
   function getWalletUserId() {
     let id = localStorage.getItem('rational_wallet_id');
@@ -2786,7 +2786,7 @@
   async function fetchWallet() {
     try {
       const res = await fetch(`/api/wallet?userId=${getWalletUserId()}`);
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const data = await res.json();
       walletBalance = data.balance;
       localStorage.setItem('rational_wallet_balance', walletBalance);
@@ -2795,30 +2795,37 @@
     } catch { return null; }
   }
 
-  // Wallet modal
-  const walletModal = $('#wallet-modal');
+  function renderWalletTransactions(transactions) {
+    const txEl = $('#wallet-transactions');
+    if (!txEl) return;
+    if (transactions && transactions.length > 0) {
+      txEl.innerHTML = transactions.slice().reverse().map(tx =>
+        `<div class="wallet-tx">
+          <span class="wallet-tx-desc">${escapeHtml(tx.description)}</span>
+          <span class="wallet-tx-amount ${tx.amount >= 0 ? 'positive' : 'negative'}">${tx.amount >= 0 ? '+' : ''}${tx.amount}</span>
+        </div>`
+      ).join('');
+    } else {
+      txEl.innerHTML = '<p class="empty">No activity yet</p>';
+    }
+  }
+
+  // Open wallet page
   $('#wallet-btn').addEventListener('click', async () => {
+    showScreen('wallet');
+    const balEl = $('#wallet-balance-big');
+    if (balEl) balEl.textContent = walletBalance;
     const data = await fetchWallet();
     if (data) {
-      $('#wallet-balance-num').textContent = data.balance;
-      const txEl = $('#wallet-transactions');
-      if (data.transactions && data.transactions.length > 0) {
-        txEl.innerHTML = data.transactions.slice().reverse().map(tx =>
-          `<div class="wallet-tx">
-            <span class="wallet-tx-desc">${escapeHtml(tx.description)}</span>
-            <span class="wallet-tx-amount ${tx.amount >= 0 ? 'positive' : 'negative'}">${tx.amount >= 0 ? '+' : ''}${tx.amount}</span>
-          </div>`
-        ).join('');
-      } else {
-        txEl.innerHTML = '<p class="empty">No transactions yet</p>';
-      }
+      if (balEl) balEl.textContent = data.balance;
+      renderWalletTransactions(data.transactions);
     }
-    walletModal.showModal();
   });
 
-  $('#wallet-modal-close').addEventListener('click', () => walletModal.close());
-  walletModal.addEventListener('click', (e) => {
-    if (e.target === walletModal) walletModal.close();
+  // Wallet back
+  $('#wallet-back').addEventListener('click', () => {
+    showScreen('home');
+    initHome();
   });
 
   // Buy coins
@@ -2841,18 +2848,9 @@
       walletBalance = data.balance;
       localStorage.setItem('rational_wallet_balance', walletBalance);
       updateWalletBadge();
-      $('#wallet-balance-num').textContent = walletBalance;
-      // Re-fetch to update transactions
+      $('#wallet-balance-big').textContent = walletBalance;
       const full = await fetchWallet();
-      if (full) {
-        const txEl = $('#wallet-transactions');
-        txEl.innerHTML = full.transactions.slice().reverse().map(tx =>
-          `<div class="wallet-tx">
-            <span class="wallet-tx-desc">${escapeHtml(tx.description)}</span>
-            <span class="wallet-tx-amount ${tx.amount >= 0 ? 'positive' : 'negative'}">${tx.amount >= 0 ? '+' : ''}${tx.amount}</span>
-          </div>`
-        ).join('');
-      }
+      if (full) renderWalletTransactions(full.transactions);
     } catch (err) {
       alert(err.message || 'Purchase failed');
     } finally {
@@ -2866,7 +2864,7 @@
     const btn = e.target.closest('.wallet-gift-btn');
     if (!btn) return;
     const giftCardId = btn.dataset.gift;
-    if (!confirm(`Redeem this gift card? It will be deducted from your coin balance.`)) return;
+    if (!confirm('Redeem this gift card? It will be deducted from your coin balance.')) return;
     btn.disabled = true;
 
     try {
@@ -2881,8 +2879,10 @@
       walletBalance = data.balance;
       localStorage.setItem('rational_wallet_balance', walletBalance);
       updateWalletBadge();
-      $('#wallet-balance-num').textContent = walletBalance;
+      $('#wallet-balance-big').textContent = walletBalance;
       alert(data.message);
+      const full = await fetchWallet();
+      if (full) renderWalletTransactions(full.transactions);
     } catch (err) {
       alert(err.message || 'Redemption failed');
     } finally {
@@ -2891,7 +2891,7 @@
   });
 
   // ================================================================
-  // HOT SEAT — Game mode
+  // HOT SEAT — Simultaneous play game mode
   // ================================================================
   const spinState = {
     gameCode: null,
@@ -2971,7 +2971,7 @@
     else el.hidden = true;
   }
 
-  // "Or start a new game instead" link from invite landing
+  // "Or start a new game instead" link
   $('#spin-show-create').addEventListener('click', (e) => {
     e.preventDefault();
     $('#spin-create-card').hidden = false;
@@ -2984,7 +2984,7 @@
 
   // Toggle create/join
   $('#spin-create-card').addEventListener('click', (e) => {
-    if (e.target.closest('input, button')) return;
+    if (e.target.closest('input, button, label')) return;
     const fields = $('#spin-create-fields');
     fields.hidden = !fields.hidden;
     if (!fields.hidden) {
@@ -3011,7 +3011,6 @@
     $('#spin-create-btn').textContent = 'Creating...';
 
     try {
-      // If staked game, deduct coins first
       if (spinState.stakeAmount > 0) {
         if (walletBalance < spinState.stakeAmount) {
           throw new Error(`Not enough coins! You need ${spinState.stakeAmount} but have ${walletBalance}. Buy more in your wallet.`);
@@ -3066,7 +3065,6 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to join');
 
-      // If staked game, deduct coins from joiner
       if (data.stakeRequired && data.stakeRequired > 0) {
         if (walletBalance < data.stakeRequired) {
           throw new Error(`This game requires ${data.stakeRequired} coins to join. You have ${walletBalance}. Buy more in your wallet.`);
@@ -3103,7 +3101,6 @@
     $('#spin-vibe-badge').textContent = vibeLabels[game.vibe] || vibeLabels.random;
     $('#spin-room-code').textContent = game.code;
 
-    // Show pot if staked game
     const potBadge = $('#spin-pot-badge');
     if (game.stakeAmount > 0) {
       potBadge.hidden = false;
@@ -3122,9 +3119,8 @@
     const container = $('#spin-participants');
     container.innerHTML = game.participants.map(p => {
       const isMe = p.id === spinState.participantId;
-      const isHotSeat = p.id === game.hotSeatPlayerId;
-      return `<span class="participant-chip${isMe ? ' is-me' : ''}${isHotSeat ? ' hot-seat' : ''}${p.hasAnswer ? ' has-arg' : ''}">
-        ${isHotSeat ? '🔥 ' : ''}${escapeHtml(p.name)}${p.score ? ` (${p.score}pts)` : ''}
+      return `<span class="participant-chip${isMe ? ' is-me' : ''}${p.hasAnswer ? ' has-arg' : ''}">
+        ${escapeHtml(p.name)}${p.score ? ` (${p.score}pts)` : ''}${p.hasAnswer ? ' ✓' : ''}
       </span>`;
     }).join('');
   }
@@ -3135,10 +3131,9 @@
     const answerInput = $('#spin-answer-input');
     const answerDone = $('#spin-answer-done');
     const waitingEl = $('#spin-waiting');
-    const judgeBtn = $('#spin-judge-btn');
     const goBtn = $('#spin-go-btn');
-    const isMyTurn = game.hotSeatPlayerId === spinState.participantId;
-    const hotSeatName = game.hotSeatPlayerName || 'someone';
+    const isCreator = game.participants[0]?.id === spinState.participantId;
+    const myPlayer = game.participants.find(p => p.id === spinState.participantId);
 
     if (game.status === 'waiting') {
       cardArea.hidden = false;
@@ -3151,63 +3146,50 @@
         goBtn.disabled = true;
         goBtn.textContent = 'Waiting for players...';
         turnLabel.textContent = 'Share the game code to invite friends';
-      } else if (isMyTurn) {
+      } else if (isCreator) {
         goBtn.disabled = false;
-        goBtn.textContent = "You're up — Flip it!";
-        turnLabel.textContent = "It's your turn!";
+        goBtn.textContent = 'Flip the card!';
+        turnLabel.textContent = `Round ${game.round} — You're the host`;
       } else {
         goBtn.disabled = true;
-        goBtn.textContent = `Waiting for ${hotSeatName}...`;
-        turnLabel.textContent = `${hotSeatName}'s turn`;
+        goBtn.textContent = 'Waiting for host...';
+        turnLabel.textContent = `Round ${game.round} — Waiting for the host to start`;
       }
     } else if (game.status === 'answering') {
       cardArea.hidden = true;
       questionArea.hidden = false;
       $('#spin-question-text').textContent = game.question;
-      $('#spin-question-label').textContent = isMyTurn ? "You're in the hot seat!" : `${hotSeatName} is in the hot seat!`;
+      $('#spin-question-label').textContent = `Round ${game.round}`;
 
-      // Only the hot seat player can answer
-      if (isMyTurn) {
-        const hotSeatPlayer = game.participants.find(p => p.id === game.hotSeatPlayerId);
-        if (hotSeatPlayer && hotSeatPlayer.hasAnswer) {
-          answerInput.hidden = true;
-          answerDone.hidden = false;
-          waitingEl.hidden = false;
-          waitingEl.querySelector('p').textContent = 'Waiting for the host to judge...';
-        } else {
-          answerInput.hidden = false;
-          answerDone.hidden = true;
-          waitingEl.hidden = true;
-        }
-      } else {
-        // Not my turn — just watching
+      const answeredCount = game.participants.filter(p => p.hasAnswer).length;
+      const totalCount = game.participants.length;
+
+      if (myPlayer && myPlayer.hasAnswer) {
         answerInput.hidden = true;
-        const hotSeatPlayer = game.participants.find(p => p.id === game.hotSeatPlayerId);
-        if (hotSeatPlayer && hotSeatPlayer.hasAnswer) {
-          answerDone.hidden = true;
-          waitingEl.hidden = false;
-          waitingEl.querySelector('p').textContent = `${hotSeatName} answered! Waiting for the host to judge...`;
-        } else {
-          answerDone.hidden = true;
-          waitingEl.hidden = false;
-          waitingEl.querySelector('p').textContent = `${hotSeatName} is in the hot seat... waiting for their answer`;
-        }
+        answerDone.hidden = false;
+        waitingEl.hidden = false;
+        waitingEl.querySelector('p').textContent = `${answeredCount}/${totalCount} players answered — waiting for everyone...`;
+      } else {
+        answerInput.hidden = false;
+        answerDone.hidden = true;
+        waitingEl.hidden = true;
       }
-
-      // Show judge button for creator once the hot seat player has answered
-      const isCreator = game.participants[0]?.id === spinState.participantId;
-      const hotSeatPlayer = game.participants.find(p => p.id === game.hotSeatPlayerId);
-      judgeBtn.hidden = !(isCreator && hotSeatPlayer && hotSeatPlayer.hasAnswer);
     } else if (game.status === 'judging') {
       cardArea.hidden = true;
       questionArea.hidden = false;
       answerInput.hidden = true;
       answerDone.hidden = true;
-      judgeBtn.hidden = true;
       waitingEl.hidden = false;
-      waitingEl.querySelector('p').textContent = `AI is rating ${hotSeatName}'s answer...`;
+      waitingEl.querySelector('p').textContent = 'AI is rating everyone\'s answers...';
     } else if (game.status === 'judged' && game.result) {
       renderSpinResults(game);
+    }
+
+    // Update pot display
+    const potBadge = $('#spin-pot-badge');
+    if (game.stakeAmount > 0 && potBadge) {
+      potBadge.hidden = false;
+      potBadge.textContent = `Pot: ${game.pot} coins`;
     }
   }
 
@@ -3217,14 +3199,13 @@
     if (inner) inner.classList.remove('flipped');
   }
 
-  // REVEAL action (card flip)
+  // REVEAL action (card flip) — only host can trigger
   $('#spin-go-btn').addEventListener('click', async () => {
     const goBtn = $('#spin-go-btn');
     goBtn.disabled = true;
     goBtn.textContent = 'Flipping...';
 
     try {
-      // Call API first to get the question
       const res = await fetch('/api/spin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3233,11 +3214,9 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to get question');
 
-      // Set the question on the card back, then flip
       $('#spin-card-question').textContent = data.game.question;
       $('#spin-card-inner').classList.add('flipped');
 
-      // Wait for flip animation, then show the question/answer UI
       setTimeout(() => {
         updateSpinUI(data.game);
         updateSpinParticipants(data.game);
@@ -3245,11 +3224,11 @@
     } catch (err) {
       showSpinError(err.message);
       goBtn.disabled = false;
-      goBtn.textContent = "Flip it!";
+      goBtn.textContent = 'Flip the card!';
     }
   });
 
-  // Copy game code as invite link
+  // Copy game code
   $('#spin-copy-btn').addEventListener('click', () => {
     const code = spinState.gameCode;
     const url = `${window.location.origin}?spin=${code}`;
@@ -3283,7 +3262,7 @@
     if (hint) hint.style.display = 'none';
   }
 
-  // Submit answer
+  // Submit answer — ANY player can answer now
   $('#spin-submit-answer').addEventListener('click', async () => {
     const answer = $('#spin-answer-textarea').value.trim();
     if (answer.length < 2) return;
@@ -3304,35 +3283,18 @@
       $('#spin-answer-done').hidden = false;
       $('#spin-submitted-text').textContent = answer;
       updateSpinParticipants(data.game);
-      updateSpinUI(data.game);
+
+      // If auto-judged (all answered), show results
+      if (data.game.status === 'judged' && data.game.result) {
+        renderSpinResults(data.game);
+      } else {
+        updateSpinUI(data.game);
+      }
     } catch (err) {
       showSpinError(err.message);
     } finally {
       $('#spin-submit-answer').disabled = false;
       $('#spin-submit-answer').textContent = 'Lock in answer';
-    }
-  });
-
-  // Judge answers
-  $('#spin-judge-btn').addEventListener('click', async () => {
-    $('#spin-judge-btn').disabled = true;
-    $('#spin-judge-btn').querySelector('span').textContent = 'Judging...';
-
-    try {
-      const res = await fetch('/api/spin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'judge', code: spinState.gameCode }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Judging failed');
-
-      renderSpinResults(data.game);
-    } catch (err) {
-      showSpinError(err.message);
-    } finally {
-      $('#spin-judge-btn').disabled = false;
-      $('#spin-judge-btn').querySelector('span').textContent = 'Judge the answers';
     }
   });
 
@@ -3344,31 +3306,37 @@
     $('#spin-room').hidden = true;
     $('#spin-results').hidden = false;
 
-    // Single-player hot seat rating
-    const scoreDisplay = r.score ? `${r.score}/10` : '';
-    $('#spin-winner-name').textContent = `${r.player || 'Player'} — ${scoreDisplay}`;
-    $('#spin-winner-reason').textContent = r.reaction || '';
+    // Show round winner
+    const winner = r.round_winner || '';
+    $('#spin-winner-name').textContent = winner;
+    $('#spin-winner-reason').textContent = 'won this round!';
 
     const rankingsEl = $('#spin-rankings');
     rankingsEl.innerHTML = '';
 
-    // Show the breakdown as a single card
-    const hotSeatPlayer = game.participants.find(p => p.name === r.player);
-    const el = document.createElement('div');
-    el.className = 'spin-ranking-card winner reveal-section';
-    el.innerHTML = `
-      <div class="spin-rank-header">
-        <span class="spin-rank-num" style="font-size:1.5rem">${scoreDisplay}</span>
-        <span class="spin-rank-name">${escapeHtml(r.player || '')}</span>
-      </div>
-      <p class="spin-rank-answer">"${escapeHtml(hotSeatPlayer?.answer || '')}"</p>
-      <p class="spin-rank-reason">${escapeHtml(r.breakdown || '')}</p>`;
-    rankingsEl.appendChild(el);
+    // Show each player's ranking card
+    if (r.rankings && Array.isArray(r.rankings)) {
+      r.rankings.forEach((rank, i) => {
+        const isWinner = rank.player === winner;
+        const player = game.participants.find(p => p.name === rank.player);
+        const el = document.createElement('div');
+        el.className = `spin-ranking-card${isWinner ? ' winner' : ''} reveal-section`;
+        el.style.animationDelay = `${i * 100}ms`;
+        el.innerHTML = `
+          <div class="spin-rank-header">
+            <span class="spin-rank-num">${rank.score}/10</span>
+            <span class="spin-rank-name">${escapeHtml(rank.player)}</span>
+          </div>
+          <p class="spin-rank-answer">${escapeHtml(rank.reaction || '')}</p>
+          <p class="spin-rank-reason">${escapeHtml(rank.breakdown || '')}</p>`;
+        rankingsEl.appendChild(el);
+      });
+    }
 
-    // Show scoreboard
+    // Scoreboard
     const scoreboardEl = document.createElement('div');
     scoreboardEl.className = 'spin-scoreboard reveal-section';
-    scoreboardEl.style.animationDelay = '200ms';
+    scoreboardEl.style.animationDelay = `${(r.rankings?.length || 1) * 100 + 100}ms`;
     const sorted = [...game.participants].sort((a, b) => (b.score || 0) - (a.score || 0));
     scoreboardEl.innerHTML = `
       <h4 style="margin-bottom:var(--space-3);opacity:0.6">Scoreboard</h4>
@@ -3384,15 +3352,17 @@
     if (r.fun_fact) {
       $('#spin-fun-fact').hidden = false;
       $('#spin-fun-fact-text').textContent = r.fun_fact;
+    } else {
+      $('#spin-fun-fact').hidden = true;
     }
 
-    // Show pot info and end game button for staked games
+    // Pot info for staked games
     const potWinnings = $('#spin-pot-winnings');
     const endGameBtn = $('#spin-end-game-btn');
+    const isCreator = game.participants[0]?.id === spinState.participantId;
     if (game.stakeAmount > 0) {
       potWinnings.hidden = false;
       potWinnings.innerHTML = `<p class="spin-pot-badge" style="display:inline-block">Pot: ${game.pot} coins</p>`;
-      const isCreator = game.participants[0]?.id === spinState.participantId;
       endGameBtn.hidden = !isCreator;
     } else {
       potWinnings.hidden = true;
@@ -3402,7 +3372,7 @@
     setTimeout(observeRevealSections, 100);
   }
 
-  // Spin again (new round, same game)
+  // Next round
   $('#spin-again-btn').addEventListener('click', () => {
     $('#spin-results').hidden = true;
     $('#spin-room').hidden = false;
@@ -3423,7 +3393,6 @@
     btn.textContent = 'Paying out...';
 
     try {
-      // Get latest game state
       const res = await fetch(`/api/spin?code=${spinState.gameCode}`);
       const data = await res.json();
       if (!res.ok) throw new Error('Could not fetch game');
@@ -3431,12 +3400,10 @@
       const game = data.game;
       if (!game.stakeAmount || game.pot <= 0) throw new Error('No pot to pay out');
 
-      // Find the winner (highest score)
       const sorted = [...game.participants].sort((a, b) => (b.score || 0) - (a.score || 0));
-      const winner = sorted[0];
+      const gameWinner = sorted[0];
 
-      // If I'm the winner, claim the pot
-      if (winner.id === spinState.participantId) {
+      if (gameWinner.id === spinState.participantId) {
         const winRes = await fetch('/api/wallet', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3450,7 +3417,7 @@
         updateWalletBadge();
         alert(`You won ${winData.winnings} coins! (${winData.rake} house fee)`);
       } else {
-        alert(`${winner.name} won the pot of ${game.pot} coins! Better luck next time.`);
+        alert(`${gameWinner.name} won the pot of ${game.pot} coins! Better luck next time.`);
       }
 
       resetSpinLobby();
@@ -3477,9 +3444,15 @@
         if (!res.ok) return;
         const data = await res.json();
         updateSpinParticipants(data.game);
-        updateSpinUI(data.game);
+
+        // If status changed to judged, show results
+        if (data.game.status === 'judged' && data.game.result) {
+          renderSpinResults(data.game);
+        } else {
+          updateSpinUI(data.game);
+        }
       } catch {}
-    }, 3000);
+    }, 2500);
   }
 
   function stopSpinPolling() {

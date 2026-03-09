@@ -1,4 +1,4 @@
-// Vercel Serverless Function — Hot Seat game rooms
+// Vercel Serverless Function — Simultaneous play game rooms
 // In-memory store (resets on cold start)
 
 const games = new Map();
@@ -109,7 +109,7 @@ function pickQuestion(vibe) {
 }
 
 function sanitizeGame(game) {
-  const hotSeatPlayer = game.participants[game.currentTurnIndex] || null;
+  const allAnswered = game.participants.length > 0 && game.participants.every(p => !!p.answer);
   return {
     code: game.code,
     vibe: game.vibe,
@@ -117,14 +117,12 @@ function sanitizeGame(game) {
     round: game.round,
     question: game.question,
     createdAt: game.createdAt,
-    currentTurnIndex: game.currentTurnIndex,
-    hotSeatPlayerId: hotSeatPlayer ? hotSeatPlayer.id : null,
-    hotSeatPlayerName: hotSeatPlayer ? hotSeatPlayer.name : null,
+    allAnswered,
     participants: game.participants.map(p => ({
       id: p.id,
       name: p.name,
       hasAnswer: !!p.answer,
-      answer: game.status === 'judged' ? p.answer : (p.answer ? '(submitted)' : null),
+      answer: game.status === 'judged' ? p.answer : null,
       score: p.score || 0,
     })),
     result: game.result,
@@ -166,7 +164,6 @@ export default async function handler(req, res) {
       createdAt: Date.now(),
       status: 'waiting', // waiting → answering → judging → judged
       round: 1,
-      currentTurnIndex: 0,
       question: null,
       participants: [{
         id: generateId(),
@@ -218,17 +215,17 @@ export default async function handler(req, res) {
     });
   }
 
-  // SPIN — pick a random question (only hot seat player can spin)
+  // SPIN — pick a random question (only the creator can start a new round)
   if (action === 'spin') {
     const code = (req.body.code || '').toUpperCase();
     const { participantId } = req.body;
     const game = games.get(code);
     if (!game) return res.status(404).json({ error: 'Game not found' });
 
-    // Verify it's the hot seat player's turn
-    const hotSeatPlayer = game.participants[game.currentTurnIndex];
-    if (participantId && hotSeatPlayer && hotSeatPlayer.id !== participantId) {
-      return res.status(400).json({ error: `It's ${hotSeatPlayer.name}'s turn to spin!` });
+    // Only the creator (first participant) can trigger a new round
+    const creator = game.participants[0];
+    if (participantId && creator && creator.id !== participantId) {
+      return res.status(400).json({ error: `Only ${creator.name} (the host) can start a new round!` });
     }
 
     // Pick a question not yet used
@@ -240,14 +237,14 @@ export default async function handler(req, res) {
     game.question = question;
     game.usedQuestions.push(question);
     game.status = 'answering';
-    // Clear previous answers
+    // Clear ALL players' answers
     game.participants.forEach(p => { p.answer = null; });
     game.result = null;
 
     return res.status(200).json({ game: sanitizeGame(game) });
   }
 
-  // ANSWER — submit your answer (only hot seat player can answer)
+  // ANSWER — any player can submit their answer
   if (action === 'answer') {
     const code = (req.body.code || '').toUpperCase();
     const game = games.get(code);
@@ -260,26 +257,57 @@ export default async function handler(req, res) {
     const participant = game.participants.find(p => p.id === participantId);
     if (!participant) return res.status(404).json({ error: 'Player not found' });
 
-    // Only the hot seat player can answer
-    const hotSeatPlayer = game.participants[game.currentTurnIndex];
-    if (hotSeatPlayer && hotSeatPlayer.id !== participantId) {
-      return res.status(400).json({ error: `Only ${hotSeatPlayer.name} can answer — they're in the hot seat!` });
-    }
-
     participant.answer = answer;
+
+    // Check if ALL participants have answered — if so, auto-judge
+    const allAnswered = game.participants.every(p => !!p.answer);
+    if (allAnswered) {
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: 'AI not configured' });
+      }
+
+      game.status = 'judging';
+
+      try {
+        const result = await judgeAllAnswers(apiKey, game);
+        game.result = result;
+        game.status = 'judged';
+
+        // Award score to each player based on their individual rating
+        if (result.rankings && Array.isArray(result.rankings)) {
+          for (const ranking of result.rankings) {
+            const player = game.participants.find(p => p.name === ranking.player);
+            if (player && ranking.score) {
+              player.score += ranking.score;
+            }
+          }
+        }
+
+        // Increment round and reset answers
+        game.round++;
+        game.participants.forEach(p => { p.answer = null; });
+
+        return res.status(200).json({ game: sanitizeGame(game) });
+      } catch (err) {
+        console.error('Judge error:', err);
+        game.status = 'answering';
+        return res.status(502).json({ error: 'AI judging failed' });
+      }
+    }
 
     return res.status(200).json({ game: sanitizeGame(game) });
   }
 
-  // JUDGE — AI rates the hot seat player's answer
+  // JUDGE — manually trigger AI judging (fallback if auto-judge didn't fire)
   if (action === 'judge') {
     const code = (req.body.code || '').toUpperCase();
     const game = games.get(code);
     if (!game) return res.status(404).json({ error: 'Game not found' });
 
-    const hotSeatPlayer = game.participants[game.currentTurnIndex];
-    if (!hotSeatPlayer || !hotSeatPlayer.answer) {
-      return res.status(400).json({ error: 'The hot seat player hasn\'t answered yet' });
+    const allAnswered = game.participants.every(p => !!p.answer);
+    if (!allAnswered) {
+      return res.status(400).json({ error: 'Not all players have answered yet' });
     }
 
     game.status = 'judging';
@@ -291,21 +319,23 @@ export default async function handler(req, res) {
     }
 
     try {
-      const result = await judgeHotSeatAnswer(apiKey, game, hotSeatPlayer);
+      const result = await judgeAllAnswers(apiKey, game);
       game.result = result;
       game.status = 'judged';
 
-      // Award points based on AI score (1-10)
-      if (result.score) {
-        hotSeatPlayer.score += result.score;
+      // Award score to each player based on their individual rating
+      if (result.rankings && Array.isArray(result.rankings)) {
+        for (const ranking of result.rankings) {
+          const player = game.participants.find(p => p.name === ranking.player);
+          if (player && ranking.score) {
+            player.score += ranking.score;
+          }
+        }
       }
 
-      // Advance turn to next player
-      game.currentTurnIndex = (game.currentTurnIndex + 1) % game.participants.length;
-      // If we've gone full circle, increment round
-      if (game.currentTurnIndex === 0) {
-        game.round++;
-      }
+      // Increment round and reset answers
+      game.round++;
+      game.participants.forEach(p => { p.answer = null; });
 
       return res.status(200).json({ game: sanitizeGame(game) });
     } catch (err) {
@@ -318,52 +348,59 @@ export default async function handler(req, res) {
   return res.status(400).json({ error: 'Unknown action' });
 }
 
-async function judgeHotSeatAnswer(apiKey, game, hotSeatPlayer) {
+async function judgeAllAnswers(apiKey, game) {
   const isAnimalSounds = game.vibe === 'animal-sounds';
 
   const systemPrompt = isAnimalSounds
-    ? `You are the judge of a hilarious group game called "Animal Sounds". One player had to type out their best animal sound impression. Your job is to rate how accurate, creative, and funny their attempt is.
+    ? `You are the judge of a hilarious group game called "Animal Sounds". ALL players had to type out their best animal sound impression for the same prompt. Your job is to rate each player's attempt, compare them, and pick a round winner.
 
-JUDGING CRITERIA:
+JUDGING CRITERIA for each player:
 - Accuracy — does it actually sound like the animal?
 - Creativity — did they go above and beyond?
 - Comedy value — is it hilarious to read?
 - Commitment — did they fully send it or phone it in?
 
-SCORING: Give a score from 1-10. A basic attempt gets 4-5, a decent one gets 6-7, a hilarious one gets 8-9, an absolute masterpiece gets 10.
+SCORING: Give each player a score from 1-10. A basic attempt gets 4-5, a decent one gets 6-7, a hilarious one gets 8-9, an absolute masterpiece gets 10.
 
-PERSONALITY: Be absolutely hilarious. React like you're dying laughing or deeply confused. Roast bad attempts. Hype up good ones. Use gen-z language. Be dramatic.`
-    : `You are the judge of a fun group game called "Hot Seat". One player is in the hot seat — they got a random question and had to answer on the spot while everyone watches. Your job is to rate their answer.
+PERSONALITY: Be absolutely hilarious. React like you're dying laughing or deeply confused. Roast bad attempts. Hype up good ones. Use gen-z language. Be dramatic. Compare the players against each other — who did it best, who flopped hardest?`
+    : `You are the judge of a fun group game. ALL players answered the same question at the same time. Your job is to rate each player's answer, compare them against each other, and pick a round winner.
 
-JUDGING CRITERIA:
+JUDGING CRITERIA for each player:
 - Creativity and originality (did they bring something unique?)
 - How well they argued/explained their point
 - Humor and entertainment value
 - Actual knowledge/insight shown
 
-SCORING: Give a score from 1-10. Be fair but generous — a solid answer gets 6-7, great gets 8-9, legendary gets 10. Don't be too harsh.
+SCORING: Give each player a score from 1-10. Be fair but generous — a solid answer gets 6-7, great gets 8-9, legendary gets 10. Don't be too harsh.
 
-PERSONALITY: Be fun, engaging, and a bit dramatic — like a game show host. Use gen-z language where it fits. Be encouraging even for weaker answers. Roast them lightly if the answer is funny.`;
+PERSONALITY: Be fun, engaging, and a bit dramatic — like a game show host. Use gen-z language where it fits. Be encouraging even for weaker answers. Roast them lightly if an answer is funny. Compare the players and create some rivalry!`;
 
   const formatInstructions = `
 
 Return ONLY valid JSON (no markdown fences):
 {
-  "player": "Name of the player",
-  "score": 8,
-  "reaction": "A fun, hype 1-2 sentence reaction to their answer — like a game show host announcing the score",
-  "breakdown": "Short breakdown of what was good/bad about the answer (2-3 sentences)",
+  "rankings": [
+    { "player": "Player Name", "score": 8, "reaction": "A fun 1-2 sentence reaction to their answer", "breakdown": "Short breakdown of what was good/bad (2-3 sentences)" }
+  ],
+  "round_winner": "Name of the player with the best answer",
   "fun_fact": "An interesting real fact related to the question topic (1-2 sentences)"
-}`;
+}
+
+The rankings array MUST include an entry for every player. Order them from highest score to lowest.`;
 
   const fullSystemPrompt = systemPrompt + formatInstructions;
 
+  const answersBlock = game.participants
+    .map(p => `${p.name}: "${p.answer}"`)
+    .join('\n\n');
+
   const userMessage = `Question: "${game.question}"
 
-${hotSeatPlayer.name} is in the hot seat. Their answer:
-"${hotSeatPlayer.answer}"
+Here are ALL the players' answers:
 
-Rate this answer. Be fair but entertaining.`;
+${answersBlock}
+
+Rate each player's answer, compare them, and pick a round winner. Be fair but entertaining.`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
