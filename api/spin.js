@@ -335,6 +335,8 @@ SCORING: Give a score from 1-10. Be fair but generous — a solid answer gets 6-
 
 PERSONALITY: Be fun, engaging, and a bit dramatic — like a game show host. Use gen-z language where it fits. Be encouraging even for weaker answers. Roast them lightly if the answer is funny.`;
 
+  const formatInstructions = `
+
 Return ONLY valid JSON (no markdown fences):
 {
   "player": "Name of the player",
@@ -343,6 +345,8 @@ Return ONLY valid JSON (no markdown fences):
   "breakdown": "Short breakdown of what was good/bad about the answer (2-3 sentences)",
   "fun_fact": "An interesting real fact related to the question topic (1-2 sentences)"
 }`;
+
+  const fullSystemPrompt = systemPrompt + formatInstructions;
 
   const userMessage = `Question: "${game.question}"
 
@@ -361,7 +365,7 @@ Rate this answer. Be fair but entertaining.`;
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
-      system: systemPrompt,
+      system: fullSystemPrompt,
       messages: [{ role: 'user', content: userMessage }],
     }),
   });
