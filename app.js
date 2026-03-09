@@ -283,15 +283,41 @@
   // SCREEN MANAGEMENT
   // ================================================================
   function showScreen(id) {
-    $$('.screen').forEach(s => s.classList.remove('active'));
-    const el = $(`#${id}`);
-    if (el) el.classList.add('active');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const prevScreen = $('.screen.active');
+    const prevId = prevScreen ? prevScreen.id : 'home';
+    const P = window.RationalParticles;
+
+    // Use particle transition if available
+    if (P && P.isReady && prevId !== id) {
+      P.playTransition(prevId, id, () => {
+        $$('.screen').forEach(s => s.classList.remove('active'));
+        const el = $(`#${id}`);
+        if (el) el.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    } else {
+      $$('.screen').forEach(s => s.classList.remove('active'));
+      const el = $(`#${id}`);
+      if (el) el.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     // Trigger animations on answer screen
     if (id === 'answer') {
       spawnParticles();
+      if (P && P.isReady) P.playAnswerBurst();
       setTimeout(observeRevealSections, 100);
+    }
+
+    // Dot-matrix text reveal for screen headings
+    if (P && P.isReady) {
+      setTimeout(() => {
+        const heading = $(`#${id} h1, #${id} h2`);
+        if (heading && !heading.dataset.dotRevealed) {
+          heading.dataset.dotRevealed = '1';
+          P.dotMatrixReveal(heading);
+        }
+      }, 400);
     }
   }
 
@@ -327,6 +353,12 @@
     const greeting = UserMemory.getGreeting();
     $('#home-heading').textContent = greeting.headline;
     $('#greeting-sub').textContent = greeting.sub;
+
+    // Dot-matrix reveal for the home heading after particles load
+    const P = window.RationalParticles;
+    if (P && P.isReady) {
+      setTimeout(() => P.dotMatrixReveal($('#home-heading')), 2800);
+    }
 
     // Show recent questions
     const decisions = Store._data.decisions.slice(0, 5);
@@ -2106,6 +2138,10 @@
     // Show thinking screen
     showScreen('thinking');
 
+    // Start particle thinking visualization
+    const P = window.RationalParticles;
+    if (P && P.isReady) P.startThinkingVisualization();
+
     // Collect options from parsed description
     collectOptionsFromParsed();
 
@@ -2156,6 +2192,7 @@
       if (data.analysis) {
         addStep('Building your answer');
         await new Promise(r => setTimeout(r, 400));
+        if (P && P.isReady) P.stopThinkingVisualization();
         renderAIResults(data.analysis);
         autoSaveDecision();
         showScreen('answer');
@@ -2169,6 +2206,7 @@
     }
 
     // Fallback: local engine
+    if (P && P.isReady) P.stopThinkingVisualization();
     runLocalAnalysis();
     autoSaveDecision();
     showScreen('answer');

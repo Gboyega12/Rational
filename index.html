@@ -30,6 +30,9 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Particle canvas overlay — purely decorative -->
+  <canvas id="particle-canvas" aria-hidden="true"></canvas>
+
   <a href="#main-content" class="skip-link">Skip to content</a>
 
   <main id="main-content">
@@ -792,6 +795,11 @@
 
   </main>
 
+  <!-- Particle system dependencies -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.3/pixi.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+  <script src="particles.js"></script>
   <script src="app.js" defer></script>
 </body>
 </html>
