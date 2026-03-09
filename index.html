@@ -488,6 +488,18 @@
             <p class="spin-sub">A question drops. Everyone answers at once. Best answer wins.</p>
           </div>
 
+          <!-- How to play (non-intrusive) -->
+          <details class="spin-howto">
+            <summary>How does it work?</summary>
+            <ol class="spin-howto-steps">
+              <li>Create a game or join with a code</li>
+              <li>The host flips a question card</li>
+              <li>Everyone answers at the same time (30s)</li>
+              <li>Answers get rated — best one wins the round</li>
+              <li>Play as many rounds as you want</li>
+            </ol>
+          </details>
+
           <p class="lobby-alt-link" id="spin-create-link" hidden>
             <a href="#" id="spin-show-create">Or start a new game instead</a>
           </p>
@@ -591,6 +603,14 @@
             <div class="spin-question-card">
               <p class="spin-question-label" id="spin-question-label">The question is...</p>
               <h3 id="spin-question-text" class="spin-question-text"></h3>
+              <div class="spin-timer" id="spin-timer" hidden>
+                <svg class="spin-timer-ring" viewBox="0 0 36 36">
+                  <circle class="spin-timer-bg" cx="18" cy="18" r="16" fill="none" stroke-width="2.5"/>
+                  <circle class="spin-timer-progress" id="spin-timer-progress" cx="18" cy="18" r="16" fill="none" stroke-width="2.5"
+                    stroke-dasharray="100.53" stroke-dashoffset="0"/>
+                </svg>
+                <span class="spin-timer-text" id="spin-timer-text">30</span>
+              </div>
             </div>
 
             <div class="spin-answer-input" id="spin-answer-input">
@@ -639,8 +659,19 @@
 
           <div class="spin-pot-winnings" id="spin-pot-winnings" hidden></div>
 
+          <!-- Reactions -->
+          <div class="spin-reactions" id="spin-reactions" hidden>
+            <button type="button" class="spin-react-btn" data-emoji="🔥" aria-label="Fire">🔥</button>
+            <button type="button" class="spin-react-btn" data-emoji="💀" aria-label="Skull">💀</button>
+            <button type="button" class="spin-react-btn" data-emoji="😂" aria-label="Crying laughing">😂</button>
+            <button type="button" class="spin-react-btn" data-emoji="🧠" aria-label="Brain">🧠</button>
+            <button type="button" class="spin-react-btn" data-emoji="💩" aria-label="Bad">💩</button>
+          </div>
+
           <div class="answer-actions">
+            <button type="button" class="action-btn" id="spin-share-btn">Share results</button>
             <button type="button" class="action-btn" id="spin-again-btn">Next turn</button>
+            <button type="button" class="action-btn" id="spin-rematch-btn" hidden>Rematch</button>
             <button type="button" class="action-btn" id="spin-end-game-btn" hidden>End game & pay out</button>
             <button type="button" class="action-btn" id="spin-new-game-btn">New game</button>
           </div>

@@ -2908,6 +2908,8 @@
     pollInterval: null,
     vibe: 'random',
     stakeAmount: 0,
+    timerInterval: null,
+    lastGameData: null,
   };
 
   // Vibe picker
@@ -2970,6 +2972,8 @@
     spinState.participantId = null;
     spinState.stakeAmount = 0;
     spinState.vibe = 'random';
+    spinState.lastGameData = null;
+    stopSpinTimer();
     // Reset vibe chip selection
     $$('.vibe-chip').forEach(c => c.classList.remove('selected'));
     const defaultChip = $('.vibe-chip[data-vibe="random"]');
@@ -3238,11 +3242,14 @@
         answerInput.hidden = true;
         answerDone.hidden = false;
         waitingEl.hidden = false;
+        stopSpinTimer();
         waitingEl.querySelector('p').textContent = `${answeredCount}/${totalCount} players answered — waiting for everyone...`;
       } else {
         answerInput.hidden = false;
         answerDone.hidden = true;
         waitingEl.hidden = true;
+        // Start timer if not already running
+        if (!spinState.timerInterval) startSpinTimer();
       }
     } else if (game.status === 'judging') {
       cardArea.hidden = true;
@@ -3250,6 +3257,7 @@
       answerInput.hidden = true;
       answerDone.hidden = true;
       waitingEl.hidden = false;
+      stopSpinTimer();
       waitingEl.querySelector('p').textContent = 'Rating everyone\'s answers...';
     } else if (game.status === 'judged' && game.result) {
       renderSpinResults(game);
@@ -3298,12 +3306,12 @@
     }
   });
 
-  // Copy game code
+  // Copy game code — challenge invite
   $('#spin-copy-btn').addEventListener('click', () => {
     const code = spinState.gameCode;
     const url = `${window.location.origin}?spin=${code}`;
     if (navigator.share) {
-      navigator.share({ title: 'Join my Hot Seat game', text: 'Hot Seat — random question drops, best answer wins!', url }).catch(() => {});
+      navigator.share({ title: `You've been called to the Hot Seat`, text: `Think you've got the best answers? Prove it. Join my game: ${url}`, url }).catch(() => {});
     } else if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(() => {
         $('#spin-copy-btn').innerHTML = '<span style="font-size:12px">Copied!</span>';
@@ -3337,6 +3345,7 @@
     const answer = $('#spin-answer-textarea').value.trim();
     if (answer.length < 2) return;
 
+    stopSpinTimer();
     $('#spin-submit-answer').disabled = true;
     $('#spin-submit-answer').textContent = 'Submitting...';
 
@@ -3370,11 +3379,26 @@
 
   function renderSpinResults(game) {
     stopSpinPolling();
+    stopSpinTimer();
     const r = game.result;
     if (!r) return;
 
+    spinState.lastGameData = game;
+
+    // Track win stats
+    const myPlayer = game.participants.find(p => p.id === spinState.participantId);
+    const iWon = myPlayer && myPlayer.name === r.round_winner;
+    SpinStats.recordRound(iWon);
+
     $('#spin-room').hidden = true;
     $('#spin-results').hidden = false;
+
+    // Show reactions bar
+    const reactionsEl = $('#spin-reactions');
+    if (reactionsEl) reactionsEl.hidden = false;
+
+    // Show rematch button
+    $('#spin-rematch-btn').hidden = false;
 
     // Show round winner
     const winner = r.round_winner || '';
@@ -3419,6 +3443,22 @@
       `).join('')}`;
     rankingsEl.appendChild(scoreboardEl);
 
+    // Win streak badge
+    const stats = SpinStats.get();
+    if (stats.streak >= 2 || stats.bestStreak >= 3) {
+      const streakEl = document.createElement('div');
+      streakEl.className = 'spin-scoreboard reveal-section';
+      streakEl.style.animationDelay = `${(r.rankings?.length || 1) * 100 + 200}ms`;
+      streakEl.innerHTML = `
+        <h4 style="margin-bottom:var(--space-3);opacity:0.6">Your stats</h4>
+        <div style="display:flex;gap:var(--space-4);justify-content:center;flex-wrap:wrap">
+          ${stats.streak >= 2 ? `<span style="font-weight:700;color:var(--purple)">${stats.streak} win streak</span>` : ''}
+          <span style="color:var(--gray-3)">${stats.wins}W / ${stats.rounds - stats.wins}L</span>
+          ${stats.bestStreak >= 3 ? `<span style="color:var(--gray-3)">Best: ${stats.bestStreak} streak</span>` : ''}
+        </div>`;
+      rankingsEl.appendChild(streakEl);
+    }
+
     if (r.fun_fact) {
       $('#spin-fun-fact').hidden = false;
       $('#spin-fun-fact-text').textContent = r.fun_fact;
@@ -3452,6 +3492,10 @@
     $('#spin-question-area').hidden = true;
     $('#spin-card-area').hidden = false;
     $('#spin-fun-fact').hidden = true;
+    $('#spin-reactions').hidden = true;
+    $('#spin-go-btn').disabled = false;
+    $('#spin-go-btn').textContent = 'Flip the card!';
+    stopSpinTimer();
     resetCardFlip();
     startSpinPolling();
   });
@@ -3502,6 +3546,241 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'End game & pay out';
+    }
+  });
+
+  // ── Countdown timer (30s) ──
+  const SPIN_TIMER_SECS = 30;
+  const SPIN_TIMER_CIRCUMFERENCE = 2 * Math.PI * 16; // matches r=16 in SVG
+
+  function startSpinTimer() {
+    stopSpinTimer();
+    const timerEl = $('#spin-timer');
+    const textEl = $('#spin-timer-text');
+    const progressEl = $('#spin-timer-progress');
+    if (!timerEl) return;
+    timerEl.hidden = false;
+    let remaining = SPIN_TIMER_SECS;
+    textEl.textContent = remaining;
+    progressEl.style.strokeDashoffset = '0';
+    textEl.classList.remove('urgent');
+    progressEl.classList.remove('urgent');
+
+    spinState.timerInterval = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) {
+        stopSpinTimer();
+        // Auto-submit whatever they have, or blank
+        const ta = $('#spin-answer-textarea');
+        const answerInput = $('#spin-answer-input');
+        if (answerInput && !answerInput.hidden && ta) {
+          if (ta.value.trim().length < 2) ta.value = '(no answer)';
+          $('#spin-submit-answer').click();
+        }
+        return;
+      }
+      textEl.textContent = remaining;
+      const offset = SPIN_TIMER_CIRCUMFERENCE * (1 - remaining / SPIN_TIMER_SECS);
+      progressEl.style.strokeDashoffset = offset;
+      if (remaining <= 10) {
+        textEl.classList.add('urgent');
+        progressEl.classList.add('urgent');
+      }
+    }, 1000);
+  }
+
+  function stopSpinTimer() {
+    if (spinState.timerInterval) {
+      clearInterval(spinState.timerInterval);
+      spinState.timerInterval = null;
+    }
+    const timerEl = $('#spin-timer');
+    if (timerEl) timerEl.hidden = true;
+  }
+
+  // ── Emoji reactions ──
+  const reactionsEl = $('#spin-reactions');
+  if (reactionsEl) {
+    reactionsEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.spin-react-btn');
+      if (!btn) return;
+      const emoji = btn.dataset.emoji;
+      // Float animation from button position
+      const rect = btn.getBoundingClientRect();
+      const float = document.createElement('span');
+      float.className = 'spin-react-float';
+      float.textContent = emoji;
+      float.style.left = `${rect.left + rect.width / 2 - 12}px`;
+      float.style.top = `${rect.top}px`;
+      document.body.appendChild(float);
+      float.addEventListener('animationend', () => float.remove());
+    });
+  }
+
+  // ── Share results card (canvas rendered) ──
+  $('#spin-share-btn').addEventListener('click', async () => {
+    const game = spinState.lastGameData;
+    if (!game || !game.result) return;
+    const r = game.result;
+    const btn = $('#spin-share-btn');
+    btn.textContent = 'Creating image...';
+    btn.disabled = true;
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 400 + (r.rankings?.length || 0) * 52;
+      const ctx = canvas.getContext('2d');
+
+      // Background
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Purple accent bar
+      const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+      grad.addColorStop(0, '#a855f7');
+      grad.addColorStop(1, '#7c3aed');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, 4);
+
+      // Title
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 28px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Hot Seat', canvas.width / 2, 50);
+
+      // Question
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '15px system-ui, -apple-system, sans-serif';
+      const q = game.question || '';
+      ctx.fillText(q.length > 60 ? q.slice(0, 57) + '...' : q, canvas.width / 2, 80);
+
+      // Winner
+      ctx.fillStyle = '#a855f7';
+      ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+      ctx.fillText(`${r.round_winner || 'Winner'} won this round!`, canvas.width / 2, 130);
+
+      // Rankings
+      ctx.textAlign = 'left';
+      let y = 175;
+      (r.rankings || []).forEach((rank, i) => {
+        const isWinner = rank.player === r.round_winner;
+        // Card bg
+        ctx.fillStyle = isWinner ? 'rgba(168,85,247,0.12)' : 'rgba(255,255,255,0.04)';
+        ctx.beginPath();
+        ctx.roundRect(24, y, canvas.width - 48, 44, 8);
+        ctx.fill();
+        // Border
+        ctx.strokeStyle = isWinner ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Score
+        ctx.fillStyle = isWinner ? '#a855f7' : 'rgba(255,255,255,0.6)';
+        ctx.font = 'bold 16px system-ui, -apple-system, sans-serif';
+        ctx.fillText(`${rank.score}/10`, 40, y + 28);
+        // Name
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '16px system-ui, -apple-system, sans-serif';
+        ctx.fillText(rank.player, 110, y + 28);
+        // Reaction
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '13px system-ui, -apple-system, sans-serif';
+        const reaction = (rank.reaction || '').slice(0, 40);
+        ctx.fillText(reaction, 250, y + 28);
+        y += 52;
+      });
+
+      // Footer
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.font = '13px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('rational.app — settle it with facts', canvas.width / 2, y + 40);
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], 'hot-seat-results.png', { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `${r.round_winner} won Hot Seat!`,
+          text: `${r.round_winner} took the round in Hot Seat. Think you can beat them?`,
+          files: [file],
+        });
+      } else if (navigator.share) {
+        await navigator.share({
+          title: `${r.round_winner} won Hot Seat!`,
+          text: `${r.round_winner} took the round in Hot Seat on Rational. Think you can beat them?`,
+          url: window.location.origin,
+        });
+      } else {
+        // Fallback: download image
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'hot-seat-results.png';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') console.warn('Share failed:', err);
+    } finally {
+      btn.textContent = 'Share results';
+      btn.disabled = false;
+    }
+  });
+
+  // ── Win streaks & stats ──
+  const SpinStats = {
+    _key: 'rational_spin_stats',
+    _data: null,
+    load() {
+      try { this._data = JSON.parse(localStorage.getItem(this._key)) || {}; } catch { this._data = {}; }
+      if (!this._data.wins) this._data.wins = 0;
+      if (!this._data.rounds) this._data.rounds = 0;
+      if (!this._data.streak) this._data.streak = 0;
+      if (!this._data.bestStreak) this._data.bestStreak = 0;
+    },
+    save() { localStorage.setItem(this._key, JSON.stringify(this._data)); },
+    recordRound(won) {
+      this.load();
+      this._data.rounds++;
+      if (won) {
+        this._data.wins++;
+        this._data.streak++;
+        if (this._data.streak > this._data.bestStreak) this._data.bestStreak = this._data.streak;
+      } else {
+        this._data.streak = 0;
+      }
+      this.save();
+    },
+    get() { this.load(); return this._data; },
+  };
+
+  // ── Rematch ──
+  $('#spin-rematch-btn').addEventListener('click', async () => {
+    const game = spinState.lastGameData;
+    if (!game) return resetSpinLobby();
+    const btn = $('#spin-rematch-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    try {
+      const myPlayer = game.participants.find(p => p.id === spinState.participantId);
+      const name = myPlayer?.name || 'Player 1';
+      const res = await fetch('/api/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', creatorName: name, vibe: game.vibe || 'random', stakeAmount: 0, walletUserId: getWalletUserId() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create rematch');
+      spinState.gameCode = data.game.code;
+      spinState.participantId = data.participantId;
+      spinState.lastGameData = null;
+      enterSpinRoom(data.game);
+    } catch (err) {
+      showSpinError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Rematch';
     }
   });
 

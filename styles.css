@@ -2009,6 +2009,114 @@ body {
   line-height: 1.6;
 }
 
+/* How to play */
+.spin-howto {
+  margin-bottom: var(--space-5);
+  color: var(--gray-3);
+}
+.spin-howto summary {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--white-60);
+  padding: var(--space-2) 0;
+  list-style: none;
+}
+.spin-howto summary::before {
+  content: '? ';
+  opacity: 0.5;
+}
+.spin-howto[open] summary {
+  color: var(--white-80);
+  margin-bottom: var(--space-2);
+}
+.spin-howto-steps {
+  font-size: var(--text-sm);
+  line-height: 1.8;
+  padding-left: var(--space-5);
+  color: var(--gray-3);
+}
+.spin-howto-steps li::marker {
+  color: var(--purple);
+  font-weight: 700;
+}
+
+/* Countdown timer */
+.spin-timer {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  margin: var(--space-4) auto 0;
+}
+.spin-timer-ring {
+  width: 44px;
+  height: 44px;
+  transform: rotate(-90deg);
+}
+.spin-timer-bg {
+  stroke: var(--white-05);
+}
+.spin-timer-progress {
+  stroke: var(--purple);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.3s;
+}
+.spin-timer-progress.urgent {
+  stroke: #ef4444;
+}
+.spin-timer-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--white-80);
+  font-family: var(--font-mono);
+}
+.spin-timer-text.urgent {
+  color: #ef4444;
+}
+
+/* Reactions bar */
+.spin-reactions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.spin-react-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--dark-2);
+  border: 1px solid var(--white-10);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.spin-react-btn:active {
+  transform: scale(1.3);
+  background: var(--white-05);
+}
+
+/* Reaction float animation */
+.spin-react-float {
+  position: fixed;
+  font-size: 1.5rem;
+  pointer-events: none;
+  animation: reactFloat 1.2s ease-out forwards;
+  z-index: 999;
+}
+@keyframes reactFloat {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-80px) scale(1.6); }
+}
+
 /* ============================================================
    Wallet & Coins
    ============================================================ */
