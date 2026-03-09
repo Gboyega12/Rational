@@ -464,6 +464,181 @@ body {
 [data-theme="light"] .theme-icon-moon { display: block !important; }
 
 /* --- Door cards --- */
+/* ============================================================
+   HERO CAROUSEL — Horizontal card swipe with dot indicators
+   ============================================================ */
+.hero-carousel {
+  margin-bottom: var(--space-10);
+  position: relative;
+}
+
+.hero-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 0;
+}
+.hero-track::-webkit-scrollbar { display: none; }
+
+.hero-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  padding: 0 var(--space-2);
+}
+
+.hero-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6) var(--space-5);
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--fg-60);
+  margin-bottom: var(--space-5);
+  display: block;
+}
+
+.hero-card-social .hero-card-tag { color: var(--mustard); }
+.hero-card-solo .hero-card-tag { color: var(--matte-blue); }
+
+/* Colored top accent — like the left borders but for the card */
+.hero-card-social { border-top: 3px solid var(--mustard); }
+.hero-card-solo   { border-top: 3px solid var(--matte-blue); }
+
+.hero-card-doors {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+}
+
+/* Door divider between stacked doors in same card */
+.hero-door-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 var(--space-4);
+}
+
+/* Solo card: vertically center the single door */
+.hero-card-solo .hero-card-doors {
+  justify-content: center;
+}
+
+.hero-solo-hint {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-40);
+  text-align: center;
+  margin-top: var(--space-4);
+  letter-spacing: 0.02em;
+}
+
+/* Override door styles inside hero cards — no external borders */
+.hero-card .home-door {
+  border: none;
+  border-left: none;
+  border-radius: 0;
+  background: transparent;
+  padding: var(--space-5) var(--space-3);
+  animation: none;
+}
+.hero-card .home-door:hover {
+  border-color: transparent;
+  box-shadow: none;
+  background: var(--fg-05);
+  transform: none;
+}
+.hero-card .home-door:active {
+  background: var(--fg-10);
+  transform: scale(0.98);
+}
+.hero-card .home-door::before { display: none; }
+
+/* Bridge between slides (visible during scroll) */
+.hero-bridge {
+  flex: 0 0 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-20);
+}
+.bridge-svg {
+  width: 40px;
+  height: 60px;
+}
+.bridge-path {
+  animation: bridgeDash 2s linear infinite;
+}
+@keyframes bridgeDash {
+  to { stroke-dashoffset: -24; }
+}
+.bridge-dot {
+  animation: bridgePulse 1.5s ease-in-out infinite;
+}
+@keyframes bridgePulse {
+  0%, 100% { opacity: 0.3; r: 3; }
+  50% { opacity: 1; r: 4; }
+}
+
+/* Dot indicators */
+.hero-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-5);
+  position: relative;
+}
+
+.hero-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg-20);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.3s var(--spring);
+  position: relative;
+  z-index: 1;
+}
+.hero-dot.active {
+  background: var(--fg);
+  width: 24px;
+  border-radius: 4px;
+}
+.hero-dot:hover:not(.active) {
+  background: var(--fg-40);
+}
+
+/* Smooth fill indicator that slides between dots */
+.hero-dot-fill {
+  position: absolute;
+  width: 24px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--mustard);
+  transition: left 0.4s var(--spring), background 0.4s ease;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  top: var(--space-5);
+  opacity: 0.4;
+}
+
+/* Legacy compat — keep home-doors for any JS that references it */
 .home-doors {
   display: flex;
   flex-direction: column;
@@ -471,7 +646,7 @@ body {
   margin-bottom: var(--space-10);
 }
 
-/* Section labels */
+/* Section labels (kept for other uses) */
 .home-section-label {
   display: flex;
   align-items: center;
@@ -1815,16 +1990,18 @@ body {
   .mic-btn-lg { width: 96px; height: 96px; }
   .debate-choices { flex-direction: row; }
   .spin-choices { flex-direction: row; }
-  .home-doors { gap: var(--space-8); }
-  .home-door { padding: var(--space-10) var(--space-8); }
   .door-ascii-art { width: 100px; height: 100px; }
   .door-ascii-art pre { font-size: 0.7rem; }
   .door-title { font-size: var(--text-2xl); }
   .door-glyph { width: 64px; height: 64px; }
   .glyph-icon { width: 36px; height: 36px; }
+
+  /* Hero carousel — cards get more padding */
+  .hero-card { padding: var(--space-8) var(--space-6); min-height: 360px; }
+  .hero-card .home-door { padding: var(--space-6) var(--space-4); }
 }
 
-/* Desktop-first premium layout for Awwwards */
+/* Desktop — side by side layout, no swipe needed */
 @media (min-width: 1024px) {
   .container { max-width: 800px; }
 
@@ -1832,15 +2009,29 @@ body {
   #home-heading { font-size: 6rem; letter-spacing: -0.06em; }
   .greeting-sub-text { font-size: var(--text-xl); max-width: 480px; }
 
-  /* Cards get larger with more breathing room */
-  .home-doors { gap: var(--space-8); }
-  .home-door {
-    padding: var(--space-12) var(--space-10);
-    border-radius: var(--radius-xl);
+  /* Hero carousel — show both cards side-by-side */
+  .hero-track {
+    overflow: visible;
+    scroll-snap-type: none;
+    gap: var(--space-5);
   }
-  .door-ascii-art { width: 120px; height: 120px; }
-  .door-ascii-art pre { font-size: 0.8rem; }
-  .door-title { font-size: var(--text-2xl); }
+  .hero-slide {
+    flex: 1 1 0;
+    padding: 0;
+  }
+  .hero-bridge {
+    flex: 0 0 40px;
+    display: flex;
+  }
+  .hero-dots { display: none; }
+  .hero-card {
+    padding: var(--space-8);
+    min-height: 380px;
+  }
+  .hero-card .home-door { padding: var(--space-6) var(--space-5); }
+  .door-ascii-art { width: 100px; height: 100px; }
+  .door-ascii-art pre { font-size: 0.7rem; }
+  .door-title { font-size: var(--text-xl); }
   .door-desc { font-size: var(--text-base); }
 
   /* Answer screen — editorial width */
@@ -1855,13 +2046,14 @@ body {
   .journal-input { font-size: var(--text-lg); }
 }
 
-/* Ultra-wide — center with max constraint */
+/* Ultra-wide */
 @media (min-width: 1440px) {
   .container { max-width: 920px; }
   #home-heading { font-size: 7rem; }
-  .home-door { padding: var(--space-16) var(--space-12); }
-  .door-ascii-art { width: 140px; height: 140px; }
-  .door-ascii-art pre { font-size: 0.9rem; }
+  .hero-card { padding: var(--space-10); min-height: 400px; }
+  .hero-card .home-door { padding: var(--space-8) var(--space-6); }
+  .door-ascii-art { width: 120px; height: 120px; }
+  .door-ascii-art pre { font-size: 0.8rem; }
 }
 
 /* ============================================================

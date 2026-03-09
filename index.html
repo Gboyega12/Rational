@@ -92,17 +92,17 @@
           <span class="amb-dot amb-dot-8"></span>
         </div>
 
-        <!-- Three doors -->
-        <div class="home-doors">
+        <!-- Hero card carousel -->
+        <div class="hero-carousel" id="hero-carousel">
+          <div class="hero-track" id="hero-track">
 
-          <!-- Social games section -->
-          <div class="home-section-label">
-            <span class="home-section-tag">::: with friends</span>
-          </div>
-
-          <!-- Door 1: Hot Seat -->
-          <button type="button" class="home-door door-spin" id="spin-entry-btn">
-            <div class="door-ascii-art" aria-hidden="true">
+            <!-- Slide 1: With Friends -->
+            <div class="hero-slide" data-slide="0">
+              <div class="hero-card hero-card-social">
+                <span class="hero-card-tag">::: with friends</span>
+                <div class="hero-card-doors">
+                  <button type="button" class="home-door door-spin" id="spin-entry-btn">
+                    <div class="door-ascii-art" aria-hidden="true">
 <pre class="ascii-fire">
   (  )
  (    )
@@ -110,17 +110,16 @@
  /|~~|\
 /_|  |_\
 </pre>
-            </div>
-            <div class="door-text">
-              <h2 class="door-title">Hot Seat</h2>
-              <p class="door-desc">Random question drops. Everyone answers. Best take wins.</p>
-            </div>
-            <span class="door-arrow-ascii" aria-hidden="true">--&gt;</span>
-          </button>
-
-          <!-- Door 2: Settle an argument -->
-          <button type="button" class="home-door door-debate" id="debate-entry-btn">
-            <div class="door-ascii-art" aria-hidden="true">
+                    </div>
+                    <div class="door-text">
+                      <h2 class="door-title">Hot Seat</h2>
+                      <p class="door-desc">Random question drops. Everyone answers. Best take wins.</p>
+                    </div>
+                    <span class="door-arrow-ascii" aria-hidden="true">--&gt;</span>
+                  </button>
+                  <div class="hero-door-divider"></div>
+                  <button type="button" class="home-door door-debate" id="debate-entry-btn">
+                    <div class="door-ascii-art" aria-hidden="true">
 <pre class="ascii-gloves">
   _O__     __O_
  | /  \___/  \ |
@@ -128,22 +127,32 @@
    \  FIGHT /
     \_____/
 </pre>
+                    </div>
+                    <div class="door-text">
+                      <h2 class="door-title">Settle it</h2>
+                      <p class="door-desc">Everyone argues their side. The facts pick the winner.</p>
+                    </div>
+                    <span class="door-arrow-ascii" aria-hidden="true">--&gt;</span>
+                  </button>
+                </div>
+              </div>
             </div>
-            <div class="door-text">
-              <h2 class="door-title">Settle it</h2>
-              <p class="door-desc">Everyone argues their side. The facts pick the winner.</p>
+
+            <!-- Connecting animation bridge -->
+            <div class="hero-bridge" aria-hidden="true">
+              <svg class="bridge-svg" viewBox="0 0 60 80" fill="none">
+                <path class="bridge-path" d="M0 40 Q30 10 60 40" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 4"/>
+                <circle class="bridge-dot" cx="30" cy="25" r="3" fill="currentColor"/>
+              </svg>
             </div>
-            <span class="door-arrow-ascii" aria-hidden="true">--&gt;</span>
-          </button>
 
-          <!-- Solo section -->
-          <div class="home-section-label">
-            <span class="home-section-tag">::: just you</span>
-          </div>
-
-          <!-- Door 3: Personal decision -->
-          <button type="button" class="home-door door-decide" id="decide-entry-btn">
-            <div class="door-ascii-art" aria-hidden="true">
+            <!-- Slide 2: Just You -->
+            <div class="hero-slide" data-slide="1">
+              <div class="hero-card hero-card-solo">
+                <span class="hero-card-tag">::: just you</span>
+                <div class="hero-card-doors">
+                  <button type="button" class="home-door door-decide" id="decide-entry-btn">
+                    <div class="door-ascii-art" aria-hidden="true">
 <pre class="ascii-crystal">
     .  *  .
   . *\*/* .
@@ -153,14 +162,26 @@
   . \_|_/ .
     . * .
 </pre>
+                    </div>
+                    <div class="door-text">
+                      <h2 class="door-title">Help me decide</h2>
+                      <p class="door-desc">Stuck? Get a clear, honest answer in seconds.</p>
+                    </div>
+                    <span class="door-arrow-ascii" aria-hidden="true">--&gt;</span>
+                  </button>
+                </div>
+                <p class="hero-solo-hint">Voice or text — big or small decisions</p>
+              </div>
             </div>
-            <div class="door-text">
-              <h2 class="door-title">Help me decide</h2>
-              <p class="door-desc">Stuck? Get a clear, honest answer in seconds.</p>
-            </div>
-            <span class="door-arrow-ascii" aria-hidden="true">--&gt;</span>
-          </button>
 
+          </div>
+
+          <!-- Dot indicators -->
+          <div class="hero-dots" id="hero-dots">
+            <button class="hero-dot active" data-dot="0" aria-label="With friends"></button>
+            <button class="hero-dot" data-dot="1" aria-label="Just you"></button>
+            <div class="hero-dot-fill" id="hero-dot-fill"></div>
+          </div>
         </div>
 
         <!-- Recent questions -->

@@ -372,12 +372,91 @@
   }
 
   // ================================================================
+  // HERO CAROUSEL — Scroll-snap with dot indicator tracking
+  // ================================================================
+  function initHeroCarousel() {
+    const track = document.getElementById('hero-track');
+    const dots = document.querySelectorAll('.hero-dot[data-dot]');
+    const fill = document.getElementById('hero-dot-fill');
+    if (!track || dots.length === 0) return;
+
+    let currentSlide = 0;
+    const slideCount = dots.length;
+
+    // Position the fill indicator
+    function updateDotFill(progress) {
+      if (!fill) return;
+      const firstDot = dots[0];
+      const lastDot = dots[dots.length - 1];
+      if (!firstDot || !lastDot) return;
+
+      const container = firstDot.parentElement;
+      const containerRect = container.getBoundingClientRect();
+      const firstRect = firstDot.getBoundingClientRect();
+      const lastRect = lastDot.getBoundingClientRect();
+
+      const startX = firstRect.left - containerRect.left;
+      const endX = lastRect.left - containerRect.left;
+      const x = startX + (endX - startX) * progress;
+
+      fill.style.left = x + 'px';
+
+      // Change color based on which slide we're closer to
+      if (progress < 0.5) {
+        fill.style.background = 'var(--mustard)';
+      } else {
+        fill.style.background = 'var(--matte-blue)';
+      }
+    }
+
+    // Update active dot state
+    function setActiveDot(index) {
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === index);
+      });
+      currentSlide = index;
+    }
+
+    // Track scroll position
+    track.addEventListener('scroll', () => {
+      const scrollLeft = track.scrollLeft;
+      const maxScroll = track.scrollWidth - track.clientWidth;
+      if (maxScroll <= 0) return;
+
+      const progress = Math.min(scrollLeft / maxScroll, 1);
+      const slideIndex = Math.round(progress * (slideCount - 1));
+
+      updateDotFill(progress);
+      if (slideIndex !== currentSlide) {
+        setActiveDot(slideIndex);
+        playSound('tick');
+      }
+    }, { passive: true });
+
+    // Dot click → scroll to slide
+    dots.forEach(dot => {
+      dot.addEventListener('click', () => {
+        const index = parseInt(dot.dataset.dot);
+        const slides = track.querySelectorAll('.hero-slide');
+        if (slides[index]) {
+          slides[index].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+          playSound('tick');
+        }
+      });
+    });
+
+    // Initial position
+    requestAnimationFrame(() => updateDotFill(0));
+  }
+
+  // ================================================================
   // INIT
   // ================================================================
   function init() {
     initCursor();
     initSound();
     initScrollEffects();
+    initHeroCarousel();
 
     // Delay sound wiring until DOM is settled
     setTimeout(wireUpSounds, 3000);
