@@ -2410,13 +2410,26 @@
     $('#debate-lobby').hidden = false;
     $('#debate-room').hidden = true;
     $('#debate-verdict').hidden = true;
+    $('#debate-create-card').hidden = false;
     $('#debate-create-fields').hidden = true;
     $('#debate-join-fields').hidden = true;
+    $('#debate-create-link').hidden = true;
     $('#debate-error').hidden = true;
     debateState.roomCode = null;
     debateState.participantId = null;
     stopDebatePolling();
   }
+
+  // "Or start a new debate instead" link from invite landing
+  $('#debate-show-create').addEventListener('click', (e) => {
+    e.preventDefault();
+    $('#debate-create-card').hidden = false;
+    $('#debate-create-link').hidden = true;
+    $('#debate-join-fields').hidden = true;
+    $('#debate-join-code').value = '';
+    $('#debate-create-fields').hidden = false;
+    $('#debate-topic').focus();
+  });
 
   // Toggle create/join forms
   $('#debate-create-card').addEventListener('click', (e) => {
@@ -2793,8 +2806,10 @@
     $('#spin-lobby').hidden = false;
     $('#spin-room').hidden = true;
     $('#spin-results').hidden = true;
+    $('#spin-create-card').hidden = false;
     $('#spin-create-fields').hidden = true;
     $('#spin-join-fields').hidden = true;
+    $('#spin-create-link').hidden = true;
     $('#spin-error').hidden = true;
     spinState.gameCode = null;
     spinState.participantId = null;
@@ -2806,6 +2821,17 @@
     if (msg) { el.textContent = msg; el.hidden = false; }
     else el.hidden = true;
   }
+
+  // "Or start a new game instead" link from invite landing
+  $('#spin-show-create').addEventListener('click', (e) => {
+    e.preventDefault();
+    $('#spin-create-card').hidden = false;
+    $('#spin-create-link').hidden = true;
+    $('#spin-join-fields').hidden = true;
+    $('#spin-join-code').value = '';
+    $('#spin-create-fields').hidden = false;
+    $('#spin-creator-name').focus();
+  });
 
   // Toggle create/join
   $('#spin-create-card').addEventListener('click', (e) => {
@@ -2890,7 +2916,7 @@
     $('#spin-room').hidden = false;
     $('#spin-results').hidden = true;
 
-    const vibeLabels = { random: '🎲 Random', 'pop-culture': '🎬 Pop culture', 'deep-thinks': '🧠 Deep thinks', 'hot-takes': '🌶️ Hot takes' };
+    const vibeLabels = { random: '🎲 Random', 'pop-culture': '🎬 Pop culture', 'deep-thinks': '🧠 Deep thinks', 'hot-takes': '🌶️ Hot takes', 'animal-sounds': '🐒 Animal sounds' };
     $('#spin-vibe-badge').textContent = vibeLabels[game.vibe] || vibeLabels.random;
     $('#spin-room-code').textContent = game.code;
 
@@ -2904,8 +2930,9 @@
     const container = $('#spin-participants');
     container.innerHTML = game.participants.map(p => {
       const isMe = p.id === spinState.participantId;
-      return `<span class="participant-chip${isMe ? ' is-me' : ''}${p.hasAnswer ? ' has-arg' : ''}">
-        ${escapeHtml(p.name)}${p.score ? ` (${p.score}pts)` : ''}
+      const isHotSeat = p.id === game.hotSeatPlayerId;
+      return `<span class="participant-chip${isMe ? ' is-me' : ''}${isHotSeat ? ' hot-seat' : ''}${p.hasAnswer ? ' has-arg' : ''}">
+        ${isHotSeat ? '🔥 ' : ''}${escapeHtml(p.name)}${p.score ? ` (${p.score}pts)` : ''}
       </span>`;
     }).join('');
   }
@@ -2918,35 +2945,62 @@
     const waitingEl = $('#spin-waiting');
     const judgeBtn = $('#spin-judge-btn');
     const goBtn = $('#spin-go-btn');
+    const isMyTurn = game.hotSeatPlayerId === spinState.participantId;
+    const hotSeatName = game.hotSeatPlayerName || 'someone';
 
     if (game.status === 'waiting') {
       wheelArea.hidden = false;
       questionArea.hidden = true;
       goBtn.hidden = false;
-      goBtn.disabled = game.participants.length < 2;
-      goBtn.textContent = game.participants.length < 2 ? 'Waiting for players...' : 'Spin it!';
+
+      if (game.participants.length < 2) {
+        goBtn.disabled = true;
+        goBtn.textContent = 'Waiting for players...';
+      } else if (isMyTurn) {
+        goBtn.disabled = false;
+        goBtn.textContent = "You're up — Spin it!";
+      } else {
+        goBtn.disabled = true;
+        goBtn.textContent = `${hotSeatName}'s turn to spin...`;
+      }
     } else if (game.status === 'answering') {
       wheelArea.hidden = true;
       questionArea.hidden = false;
       $('#spin-question-text').textContent = game.question;
+      $('#spin-question-label').textContent = isMyTurn ? "You're in the hot seat!" : `${hotSeatName} is in the hot seat!`;
 
-      const me = game.participants.find(p => p.id === spinState.participantId);
-      if (me && me.hasAnswer) {
-        answerInput.hidden = true;
-        answerDone.hidden = false;
+      // Only the hot seat player can answer
+      if (isMyTurn) {
+        const hotSeatPlayer = game.participants.find(p => p.id === game.hotSeatPlayerId);
+        if (hotSeatPlayer && hotSeatPlayer.hasAnswer) {
+          answerInput.hidden = true;
+          answerDone.hidden = false;
+          waitingEl.hidden = false;
+          waitingEl.querySelector('p').textContent = 'Waiting for the host to judge...';
+        } else {
+          answerInput.hidden = false;
+          answerDone.hidden = true;
+          waitingEl.hidden = true;
+        }
       } else {
-        answerInput.hidden = false;
-        answerDone.hidden = true;
+        // Not my turn — just watching
+        answerInput.hidden = true;
+        const hotSeatPlayer = game.participants.find(p => p.id === game.hotSeatPlayerId);
+        if (hotSeatPlayer && hotSeatPlayer.hasAnswer) {
+          answerDone.hidden = true;
+          waitingEl.hidden = false;
+          waitingEl.querySelector('p').textContent = `${hotSeatName} answered! Waiting for the host to judge...`;
+        } else {
+          answerDone.hidden = true;
+          waitingEl.hidden = false;
+          waitingEl.querySelector('p').textContent = `${hotSeatName} is in the hot seat... waiting for their answer`;
+        }
       }
 
-      const withAnswers = game.participants.filter(p => p.hasAnswer).length;
-      const total = game.participants.length;
-      waitingEl.hidden = withAnswers >= total;
-      waitingEl.querySelector('p').textContent = `${withAnswers}/${total} answered...`;
-
-      // Show judge button for creator if 2+ answers
+      // Show judge button for creator once the hot seat player has answered
       const isCreator = game.participants[0]?.id === spinState.participantId;
-      judgeBtn.hidden = !(isCreator && withAnswers >= 2);
+      const hotSeatPlayer = game.participants.find(p => p.id === game.hotSeatPlayerId);
+      judgeBtn.hidden = !(isCreator && hotSeatPlayer && hotSeatPlayer.hasAnswer);
     } else if (game.status === 'judging') {
       wheelArea.hidden = true;
       questionArea.hidden = false;
@@ -2954,7 +3008,7 @@
       answerDone.hidden = true;
       judgeBtn.hidden = true;
       waitingEl.hidden = false;
-      waitingEl.querySelector('p').textContent = 'AI is judging the answers...';
+      waitingEl.querySelector('p').textContent = `AI is rating ${hotSeatName}'s answer...`;
     } else if (game.status === 'judged' && game.result) {
       renderSpinResults(game);
     }
@@ -3020,7 +3074,7 @@
         const res = await fetch('/api/spin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'spin', code: spinState.gameCode }),
+          body: JSON.stringify({ action: 'spin', code: spinState.gameCode, participantId: spinState.participantId }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Spin failed');
@@ -3131,27 +3185,42 @@
     $('#spin-room').hidden = true;
     $('#spin-results').hidden = false;
 
-    $('#spin-winner-name').textContent = r.winner || 'No winner';
-    $('#spin-winner-reason').textContent = r.winner_reason || '';
+    // Single-player hot seat rating
+    const scoreDisplay = r.score ? `${r.score}/10` : '';
+    $('#spin-winner-name').textContent = `${r.player || 'Player'} — ${scoreDisplay}`;
+    $('#spin-winner-reason').textContent = r.reaction || '';
 
     const rankingsEl = $('#spin-rankings');
     rankingsEl.innerHTML = '';
-    if (r.rankings && r.rankings.length > 0) {
-      r.rankings.forEach((rank, i) => {
-        const p = game.participants.find(pp => pp.name === rank.name);
-        const el = document.createElement('div');
-        el.className = `spin-ranking-card${i === 0 ? ' winner' : ''} reveal-section`;
-        el.style.animationDelay = `${i * 100}ms`;
-        el.innerHTML = `
-          <div class="spin-rank-header">
-            <span class="spin-rank-num">#${rank.rank || i + 1}</span>
-            <span class="spin-rank-name">${escapeHtml(rank.name)}</span>
-          </div>
-          <p class="spin-rank-answer">"${escapeHtml(p?.answer || '')}"</p>
-          <p class="spin-rank-reason">${escapeHtml(rank.comment)}</p>`;
-        rankingsEl.appendChild(el);
-      });
-    }
+
+    // Show the breakdown as a single card
+    const hotSeatPlayer = game.participants.find(p => p.name === r.player);
+    const el = document.createElement('div');
+    el.className = 'spin-ranking-card winner reveal-section';
+    el.innerHTML = `
+      <div class="spin-rank-header">
+        <span class="spin-rank-num" style="font-size:1.5rem">${scoreDisplay}</span>
+        <span class="spin-rank-name">${escapeHtml(r.player || '')}</span>
+      </div>
+      <p class="spin-rank-answer">"${escapeHtml(hotSeatPlayer?.answer || '')}"</p>
+      <p class="spin-rank-reason">${escapeHtml(r.breakdown || '')}</p>`;
+    rankingsEl.appendChild(el);
+
+    // Show scoreboard
+    const scoreboardEl = document.createElement('div');
+    scoreboardEl.className = 'spin-scoreboard reveal-section';
+    scoreboardEl.style.animationDelay = '200ms';
+    const sorted = [...game.participants].sort((a, b) => (b.score || 0) - (a.score || 0));
+    scoreboardEl.innerHTML = `
+      <h4 style="margin-bottom:var(--space-3);opacity:0.6">Scoreboard</h4>
+      ${sorted.map((p, i) => `
+        <div class="spin-rank-header" style="margin-bottom:var(--space-2)">
+          <span class="spin-rank-num">#${i + 1}</span>
+          <span class="spin-rank-name">${escapeHtml(p.name)}</span>
+          <span style="margin-left:auto;font-weight:700;color:var(--green)">${p.score || 0}pts</span>
+        </div>
+      `).join('')}`;
+    rankingsEl.appendChild(scoreboardEl);
 
     if (r.fun_fact) {
       $('#spin-fun-fact').hidden = false;
@@ -3208,19 +3277,25 @@
   const urlSpin = urlParams.get('spin');
 
   if (urlSpin) {
-    // Deep link into spin game
+    // Deep link into spin game — show ONLY join card
     showScreen('spin');
     resetSpinLobby();
+    $('#spin-create-card').hidden = true;
+    $('#spin-join-card').hidden = false;
     $('#spin-join-fields').hidden = false;
     $('#spin-join-code').value = urlSpin.toUpperCase();
+    $('#spin-create-link').hidden = false;
     $('#spin-join-name').focus();
     window.history.replaceState({}, '', '/');
   } else if (urlDebate) {
-    // Deep link into debate room
+    // Deep link into debate room — show ONLY join card
     showScreen('debate');
     resetDebateLobby();
+    $('#debate-create-card').hidden = true;
+    $('#debate-join-card').hidden = false;
     $('#debate-join-fields').hidden = false;
     $('#debate-join-code').value = urlDebate.toUpperCase();
+    $('#debate-create-link').hidden = false;
     $('#debate-join-name').focus();
     window.history.replaceState({}, '', '/');
   } else if (urlAction === 'debate') {

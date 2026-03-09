@@ -324,6 +324,10 @@
             <p class="debate-sub">Create a room or join one. Everyone argues their side, then the AI settles it with facts.</p>
           </div>
 
+          <p class="lobby-alt-link" id="debate-create-link" hidden>
+            <a href="#" id="debate-show-create">Or start a new debate instead</a>
+          </p>
+
           <div class="debate-choices">
             <div class="debate-choice-card" id="debate-create-card">
               <h3>Start a debate</h3>
@@ -477,6 +481,10 @@
             <p class="spin-sub">Random question drops. Everyone answers. Best take wins.</p>
           </div>
 
+          <p class="lobby-alt-link" id="spin-create-link" hidden>
+            <a href="#" id="spin-show-create">Or start a new game instead</a>
+          </p>
+
           <div class="spin-choices">
             <div class="debate-choice-card" id="spin-create-card">
               <h3>Start a game</h3>
@@ -501,6 +509,10 @@
                     <button type="button" class="personality-chip" data-vibe="hot-takes">
                       <span class="personality-emoji">🌶️</span>
                       <span class="personality-name">Hot takes</span>
+                    </button>
+                    <button type="button" class="personality-chip" data-vibe="animal-sounds">
+                      <span class="personality-emoji">🐒</span>
+                      <span class="personality-name">Animal sounds</span>
                     </button>
                   </div>
                 </div>
@@ -549,12 +561,12 @@
           <!-- Question reveal -->
           <div class="spin-question-area" id="spin-question-area" hidden>
             <div class="spin-question-card">
-              <p class="spin-question-label">The question is...</p>
+              <p class="spin-question-label" id="spin-question-label">The question is...</p>
               <h3 id="spin-question-text" class="spin-question-text"></h3>
             </div>
 
             <div class="spin-answer-input" id="spin-answer-input">
-              <h4>Your answer</h4>
+              <h4>You're in the hot seat — answer up!</h4>
               <button type="button" class="mic-btn debate-mic-btn" id="spin-mic-btn" aria-label="Speak your answer">
                 <div class="mic-ring" id="spin-mic-ring"></div>
                 <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M5 12a7 7 0 0014 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 19v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -586,13 +598,13 @@
         <!-- Step 3: Results -->
         <div id="spin-results" class="spin-step" hidden>
           <div class="spin-results-hero">
-            <p class="answer-label">And the winner is...</p>
+            <p class="answer-label">The verdict is in</p>
             <h2 id="spin-winner-name" class="answer-title"></h2>
             <p id="spin-winner-reason" class="answer-sub"></p>
           </div>
 
           <div class="why-section">
-            <p class="why-label">All answers ranked</p>
+            <p class="why-label">The breakdown</p>
             <div id="spin-rankings"></div>
           </div>
 
@@ -602,7 +614,7 @@
           </div>
 
           <div class="answer-actions">
-            <button type="button" class="action-btn" id="spin-again-btn">Spin again</button>
+            <button type="button" class="action-btn" id="spin-again-btn">Next turn</button>
             <button type="button" class="action-btn" id="spin-new-game-btn">New game</button>
           </div>
         </div>
