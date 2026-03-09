@@ -913,19 +913,19 @@
 
   function renderAIFollowups(questions) {
     // Show AI-suggested follow-up questions at the bottom of the answer
-    const existing = $('#ai-followups');
+    const existing = $('#followups');
     if (existing) existing.remove();
 
     const container = document.createElement('div');
-    container.id = 'ai-followups';
-    container.className = 'ai-followups';
+    container.id = 'followups';
+    container.className = 'followups';
     container.innerHTML = `
       <h4>Want a sharper answer?</h4>
-      <p class="ai-followups-sub">These details would help me be more specific:</p>
+      <p class="followups-sub">These details would help me be more specific:</p>
       ${questions.map((q, i) => `
-        <div class="ai-followup-item">
-          <p class="ai-followup-q">${escapeHtml(q.question)}</p>
-          ${q.why ? `<p class="ai-followup-why">${escapeHtml(q.why)}</p>` : ''}
+        <div class="followup-item">
+          <p class="followup-q">${escapeHtml(q.question)}</p>
+          ${q.why ? `<p class="followup-why">${escapeHtml(q.why)}</p>` : ''}
         </div>
       `).join('')}
     `;
@@ -2084,7 +2084,7 @@
     // Try AI-powered analysis first
     try {
       await new Promise(r => setTimeout(r, 600));
-      addStep('Connecting to AI');
+      addStep('Analyzing your options');
 
       const personalContext = {};
       const mem = UserMemory.profile;
@@ -2686,7 +2686,7 @@
         // Show analyzing state
         $('#debate-decide-btn').hidden = true;
         $('#debate-waiting').hidden = false;
-        $('#debate-waiting').querySelector('p').textContent = 'AI is analyzing all arguments...';
+        $('#debate-waiting').querySelector('p').textContent = 'Analyzing all arguments...';
       } else {
         updateDebateParticipants(room);
       }
@@ -2744,9 +2744,9 @@
       fuEl.innerHTML = `
         <h4>Questions that could help resolve this further</h4>
         ${v.followup_questions.map(q => `
-          <div class="ai-followup-item">
-            <p class="ai-followup-q">${escapeHtml(q.question)}</p>
-            ${q.for ? `<p class="ai-followup-why">For ${escapeHtml(q.for)}</p>` : ''}
+          <div class="followup-item">
+            <p class="followup-q">${escapeHtml(q.question)}</p>
+            ${q.for ? `<p class="followup-why">For ${escapeHtml(q.for)}</p>` : ''}
           </div>
         `).join('')}`;
     }
@@ -3250,7 +3250,7 @@
       answerInput.hidden = true;
       answerDone.hidden = true;
       waitingEl.hidden = false;
-      waitingEl.querySelector('p').textContent = 'AI is rating everyone\'s answers...';
+      waitingEl.querySelector('p').textContent = 'Rating everyone\'s answers...';
     } else if (game.status === 'judged' && game.result) {
       renderSpinResults(game);
     }
