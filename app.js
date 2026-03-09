@@ -3030,7 +3030,7 @@
       const res = await fetch('/api/spin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', creatorName: name, vibe: spinState.vibe, stakeAmount: spinState.stakeAmount }),
+        body: JSON.stringify({ action: 'create', creatorName: name, vibe: spinState.vibe, stakeAmount: spinState.stakeAmount, walletUserId: getWalletUserId() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create game');
@@ -3057,22 +3057,24 @@
     $('#spin-join-btn').textContent = 'Joining...';
 
     try {
-      const res = await fetch('/api/spin', {
+      // Step 1: Peek at game to check stake requirement BEFORE joining
+      const peekRes = await fetch('/api/spin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'join', code, name }),
+        body: JSON.stringify({ action: 'peek', code }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to join');
+      const peekData = await peekRes.json();
+      if (!peekRes.ok) throw new Error(peekData.error || 'Game not found');
 
-      if (data.stakeRequired && data.stakeRequired > 0) {
-        if (walletBalance < data.stakeRequired) {
-          throw new Error(`This game requires ${data.stakeRequired} coins to join. You have ${walletBalance}. Buy more in your wallet.`);
+      // Step 2: If staked game, deduct coins BEFORE joining
+      if (peekData.stakeRequired > 0) {
+        if (walletBalance < peekData.stakeRequired) {
+          throw new Error(`This game requires ${peekData.stakeRequired} coins to join. You have ${walletBalance}. Buy more in your wallet.`);
         }
         const stakeRes = await fetch('/api/wallet', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'stake', userId: getWalletUserId(), amount: data.stakeRequired }),
+          body: JSON.stringify({ action: 'stake', userId: getWalletUserId(), amount: peekData.stakeRequired }),
         });
         const stakeData = await stakeRes.json();
         if (!stakeRes.ok) throw new Error(stakeData.error);
@@ -3080,6 +3082,15 @@
         localStorage.setItem('rational_wallet_balance', walletBalance);
         updateWalletBadge();
       }
+
+      // Step 3: NOW join — coins already deducted, so no ghost participants
+      const res = await fetch('/api/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'join', code, name, walletUserId: getWalletUserId() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to join');
 
       spinState.gameCode = data.game.code;
       spinState.participantId = data.participantId;
@@ -3123,6 +3134,13 @@
         ${escapeHtml(p.name)}${p.score ? ` (${p.score}pts)` : ''}${p.hasAnswer ? ' ✓' : ''}
       </span>`;
     }).join('');
+
+    // Keep pot badge in sync as players join
+    const potBadge = $('#spin-pot-badge');
+    if (potBadge && game.stakeAmount > 0) {
+      potBadge.hidden = false;
+      potBadge.textContent = `Pot: ${game.pot} coins (${game.stakeAmount} buy-in)`;
+    }
   }
 
   function updateSpinUI(game) {
@@ -3393,31 +3411,37 @@
     btn.textContent = 'Paying out...';
 
     try {
-      const res = await fetch(`/api/spin?code=${spinState.gameCode}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error('Could not fetch game');
+      // Step 1: Ask server who won (server determines winner, marks game as paid)
+      const payoutRes = await fetch('/api/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'payout', code: spinState.gameCode }),
+      });
+      const payoutData = await payoutRes.json();
+      if (!payoutRes.ok) throw new Error(payoutData.error || 'Payout failed');
 
-      const game = data.game;
-      if (!game.stakeAmount || game.pot <= 0) throw new Error('No pot to pay out');
-
-      const sorted = [...game.participants].sort((a, b) => (b.score || 0) - (a.score || 0));
-      const gameWinner = sorted[0];
-
-      if (gameWinner.id === spinState.participantId) {
+      // Step 2: Credit the winner's wallet (using their stored walletUserId)
+      const winnerWalletId = payoutData.winnerWalletUserId;
+      if (winnerWalletId) {
         const winRes = await fetch('/api/wallet', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'win', userId: getWalletUserId(), potTotal: game.pot, playerCount: game.participants.length }),
+          body: JSON.stringify({ action: 'win', userId: winnerWalletId, potTotal: payoutData.pot, playerCount: 1 }),
         });
         const winData = await winRes.json();
         if (!winRes.ok) throw new Error(winData.error);
 
-        walletBalance = winData.balance;
-        localStorage.setItem('rational_wallet_balance', walletBalance);
-        updateWalletBadge();
-        alert(`You won ${winData.winnings} coins! (${winData.rake} house fee)`);
+        // If the winner is me, update my local balance
+        if (payoutData.winnerId === spinState.participantId) {
+          walletBalance = winData.balance;
+          localStorage.setItem('rational_wallet_balance', walletBalance);
+          updateWalletBadge();
+          alert(`You won ${winData.winnings} coins! (${winData.rake} house fee)`);
+        } else {
+          alert(`${payoutData.winnerName} won the pot of ${payoutData.pot} coins! Better luck next time.`);
+        }
       } else {
-        alert(`${gameWinner.name} won the pot of ${game.pot} coins! Better luck next time.`);
+        alert(`${payoutData.winnerName} won! (No wallet linked — coins not awarded)`);
       }
 
       resetSpinLobby();
@@ -3444,6 +3468,11 @@
         if (!res.ok) return;
         const data = await res.json();
         updateSpinParticipants(data.game);
+
+        // If game was paid out, refresh wallet balance for all players
+        if (data.game.paidOut) {
+          fetchWallet();
+        }
 
         // If status changed to judged, show results
         if (data.game.status === 'judged' && data.game.result) {

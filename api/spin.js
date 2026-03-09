@@ -124,7 +124,9 @@ function sanitizeGame(game) {
       hasAnswer: !!p.answer,
       answer: game.status === 'judged' ? p.answer : null,
       score: p.score || 0,
+      hasWallet: !!p.walletUserId,
     })),
+    paidOut: game.paidOut || false,
     result: game.result,
     stakeAmount: game.stakeAmount || 0,
     pot: game.pot || 0,
@@ -153,7 +155,7 @@ export default async function handler(req, res) {
 
   // CREATE game
   if (action === 'create') {
-    const { creatorName, vibe, stakeAmount } = req.body;
+    const { creatorName, vibe, stakeAmount, walletUserId } = req.body;
     const validVibes = ['random', 'pop-culture', 'deep-thinks', 'hot-takes', 'animal-sounds'];
     const gameVibe = validVibes.includes(vibe) ? vibe : 'random';
 
@@ -171,17 +173,33 @@ export default async function handler(req, res) {
         joinedAt: Date.now(),
         answer: null,
         score: 0,
+        walletUserId: walletUserId || null,
       }],
       result: null,
       usedQuestions: [],
       stakeAmount: stakeAmount && stakeAmount >= 10 ? stakeAmount : 0,
       pot: stakeAmount && stakeAmount >= 10 ? stakeAmount : 0,
+      paidOut: false,
     };
     games.set(code, game);
 
     return res.status(200).json({
       game: sanitizeGame(game),
       participantId: game.participants[0].id,
+    });
+  }
+
+  // PEEK — check game info before joining (no side effects)
+  if (action === 'peek') {
+    const code = (req.body.code || '').toUpperCase();
+    const game = games.get(code);
+    if (!game) return res.status(404).json({ error: 'Game not found. Check the code.' });
+    if (game.participants.length >= 8) return res.status(400).json({ error: 'Game is full (max 8)' });
+
+    return res.status(200).json({
+      stakeRequired: game.stakeAmount || 0,
+      playerCount: game.participants.length,
+      vibe: game.vibe,
     });
   }
 
@@ -192,6 +210,13 @@ export default async function handler(req, res) {
     if (!game) return res.status(404).json({ error: 'Game not found. Check the code.' });
     if (game.participants.length >= 8) return res.status(400).json({ error: 'Game is full (max 8)' });
 
+    const { walletUserId } = req.body;
+
+    // For staked games, verify wallet was provided
+    if (game.stakeAmount > 0 && !walletUserId) {
+      return res.status(400).json({ error: 'Wallet ID required for staked games' });
+    }
+
     const name = req.body.name || `Player ${game.participants.length + 1}`;
     const displayName = game.participants.some(p => p.name === name) ? `${name} (${game.participants.length + 1})` : name;
     const participant = {
@@ -200,10 +225,11 @@ export default async function handler(req, res) {
       joinedAt: Date.now(),
       answer: null,
       score: 0,
+      walletUserId: walletUserId || null,
     };
     game.participants.push(participant);
 
-    // Add to pot if staked game
+    // Add to pot if staked game (wallet already deducted client-side before join)
     if (game.stakeAmount > 0) {
       game.pot += game.stakeAmount;
     }
@@ -343,6 +369,30 @@ export default async function handler(req, res) {
       game.status = 'answering';
       return res.status(502).json({ error: 'AI judging failed' });
     }
+  }
+
+  // PAYOUT — server-side winner payout (any player can trigger, pays the actual winner)
+  if (action === 'payout') {
+    const code = (req.body.code || '').toUpperCase();
+    const game = games.get(code);
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (!game.stakeAmount || game.pot <= 0) return res.status(400).json({ error: 'No pot to pay out' });
+    if (game.paidOut) return res.status(400).json({ error: 'Already paid out' });
+
+    const sorted = [...game.participants].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const winner = sorted[0];
+
+    if (!winner) return res.status(400).json({ error: 'No players found' });
+
+    game.paidOut = true;
+
+    return res.status(200).json({
+      winnerId: winner.id,
+      winnerName: winner.name,
+      winnerWalletUserId: winner.walletUserId,
+      pot: game.pot,
+      stakeAmount: game.stakeAmount,
+    });
   }
 
   return res.status(400).json({ error: 'Unknown action' });
