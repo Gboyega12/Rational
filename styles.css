@@ -175,6 +175,17 @@ body.particles-ready #main-content {
   display: inline-block;
 }
 
+/* Suppress CSS screen animation during particle transitions */
+body.particle-transition .screen.active {
+  animation: none !important;
+}
+
+/* Hide CSS thinking rings when particle system is handling it */
+body.particles-thinking .thinking-visual {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 

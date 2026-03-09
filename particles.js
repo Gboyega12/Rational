@@ -325,23 +325,6 @@
   }
 
   // ================================================================
-  // MAIN RENDER LOOP
-  // ================================================================
-  function gameLoop() {
-    animationId = requestAnimationFrame(gameLoop);
-
-    // Update all dots
-    for (let i = 0; i < dots.length; i++) {
-      dots[i].update(1);
-    }
-
-    // Interactive effects
-    applyMouseRepulsion();
-    updateCursorTrail();
-    updateRipples();
-  }
-
-  // ================================================================
   // LOAD SEQUENCE — dots scatter then converge into logo + UI
   // ================================================================
   function playLoadSequence() {
@@ -551,8 +534,15 @@
     const w = window.innerWidth;
     const h = window.innerHeight;
 
+    // Suppress CSS fadeUp during particle transition
+    document.body.classList.add('particle-transition');
+
     // Phase 1: Current dots scatter outward
-    const tl = gsap.timeline();
+    const tl = gsap.timeline({
+      onComplete: () => {
+        document.body.classList.remove('particle-transition');
+      }
+    });
 
     tl.to({}, {
       duration: 0.3,
@@ -663,6 +653,7 @@
   function startThinkingVisualization() {
     if (!isReady) return;
     thinkingActive = true;
+    document.body.classList.add('particles-thinking');
 
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -749,6 +740,7 @@
 
   function stopThinkingVisualization() {
     thinkingActive = false;
+    document.body.classList.remove('particles-thinking');
     thinkingDots.forEach(dot => {
       dot.targetAlpha = 0;
       dot.free = true;
@@ -814,6 +806,8 @@
     }
 
     initInput();
+    initThemeWatcher();
+    initAdaptiveQuality();
     gameLoop();
 
     // Play load sequence after a brief delay
@@ -823,6 +817,92 @@
 
     // Wire up card hover effects after DOM is ready
     setTimeout(initCardHoverEffects, CONFIG.loadDuration * 1000 + 200);
+  }
+
+  // ================================================================
+  // THEME AWARENESS — re-tint particles on dark/light switch
+  // ================================================================
+  function initThemeWatcher() {
+    const observer = new MutationObserver(() => {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      // In light mode, dim particles more and shift gray
+      dots.forEach(dot => {
+        if (dot.phase === 'card' || dot.phase === 'ambient') {
+          dot.targetAlpha = isLight
+            ? dot.targetAlpha * 0.6  // subtler in light mode
+            : dot.targetAlpha;
+        }
+      });
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  }
+
+  // ================================================================
+  // ADAPTIVE QUALITY — drop particles if FPS drops
+  // ================================================================
+  let lastFrameTime = 0;
+  let slowFrameCount = 0;
+  let qualityReduced = false;
+
+  function initAdaptiveQuality() {
+    // Check in the game loop — but sample every 60 frames
+    let frameCount = 0;
+    const origGameLoop = gameLoop;
+
+    // Override game loop with quality monitoring
+    const monitoredLoop = () => {
+      const now = performance.now();
+      if (lastFrameTime > 0) {
+        const dt = now - lastFrameTime;
+        if (dt > 20) { // Below ~50fps
+          slowFrameCount++;
+        } else {
+          slowFrameCount = Math.max(0, slowFrameCount - 1);
+        }
+
+        // If consistently slow, hide every other dot
+        if (slowFrameCount > 10 && !qualityReduced) {
+          qualityReduced = true;
+          dots.forEach((dot, i) => {
+            if (i % 2 === 0) {
+              dot.sprite.visible = false;
+            }
+          });
+        }
+        // Recovery
+        if (slowFrameCount === 0 && qualityReduced) {
+          qualityReduced = false;
+          dots.forEach(dot => { dot.sprite.visible = true; });
+        }
+      }
+      lastFrameTime = now;
+    };
+
+    // Inject into game loop
+    const origRequest = gameLoop;
+    // We'll call monitoredLoop at the start of each frame
+    window._particleQualityMonitor = monitoredLoop;
+  }
+
+  // ================================================================
+  // MAIN RENDER LOOP (updated to include quality monitor)
+  // ================================================================
+  // Redefine gameLoop to include quality monitoring
+  function gameLoop() {
+    animationId = requestAnimationFrame(gameLoop);
+
+    // Quality monitoring
+    if (window._particleQualityMonitor) window._particleQualityMonitor();
+
+    // Update all dots
+    for (let i = 0; i < dots.length; i++) {
+      dots[i].update(1);
+    }
+
+    // Interactive effects
+    applyMouseRepulsion();
+    updateCursorTrail();
+    updateRipples();
   }
 
   // Expose API for app.js to call
