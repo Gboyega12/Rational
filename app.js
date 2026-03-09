@@ -129,14 +129,14 @@
     // Get greeting based on history
     getGreeting() {
       const p = this._profile;
-      if (!p.firstSeen) return { headline: "What's on your mind?", sub: "Ask me anything — big life decisions or what to eat for dinner." };
+      if (!p.firstSeen) return { headline: "Hey", sub: "What are we figuring out today?" };
 
       const days = Math.floor((Date.now() - p.firstSeen) / 86400000);
       const total = p.questionsAsked;
       const topCat = Object.entries(p.topCategories).sort((a, b) => b[1] - a[1])[0];
       const name = p.name ? `, ${p.name}` : '';
 
-      if (total === 0) return { headline: "What's on your mind?", sub: "Ask me anything — big life decisions or what to eat for dinner." };
+      if (total === 0) return { headline: "Hey", sub: "What are we figuring out today?" };
 
       const lastMood = p.recentMoods[p.recentMoods.length - 1];
       const hoursSinceLast = p.lastSeen ? (Date.now() - p.lastSeen) / 3600000 : 999;
