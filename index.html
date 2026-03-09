@@ -32,6 +32,10 @@
             <span class="logo-text-sm">Rational</span>
           </div>
           <div class="top-bar-right">
+            <button id="wallet-btn" class="icon-btn wallet-btn" type="button" aria-label="Wallet">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.3"/><text x="10" y="14" text-anchor="middle" fill="currentColor" font-size="11" font-weight="700">C</text></svg>
+              <span class="wallet-badge" id="wallet-badge">0</span>
+            </button>
             <button id="history-btn" class="icon-btn" type="button" aria-label="History">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.3"/><path d="M10 6v5l3 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
             </button>
@@ -516,6 +520,20 @@
                     </button>
                   </div>
                 </div>
+                <div class="stakes-toggle">
+                  <label class="stakes-toggle-label">
+                    <input type="checkbox" id="spin-stakes-toggle">
+                    <span class="stakes-toggle-text">Play for coins</span>
+                  </label>
+                  <div class="stakes-amount-wrap" id="spin-stakes-amount-wrap" hidden>
+                    <label class="personality-label">Buy-in per player</label>
+                    <div class="stakes-options" id="spin-stakes-options">
+                      <button type="button" class="personality-chip selected" data-stake="50">50</button>
+                      <button type="button" class="personality-chip" data-stake="100">100</button>
+                      <button type="button" class="personality-chip" data-stake="200">200</button>
+                    </div>
+                  </div>
+                </div>
                 <button type="button" class="btn-primary-full" id="spin-create-btn">Create game</button>
               </div>
             </div>
@@ -546,16 +564,23 @@
             </div>
           </div>
 
+          <div class="spin-pot-badge" id="spin-pot-badge" hidden></div>
           <div class="spin-participants" id="spin-participants"></div>
 
-          <!-- The Wheel -->
-          <div class="spin-wheel-area" id="spin-wheel-area">
-            <div class="spin-wheel-pointer">▼</div>
-            <div class="spin-wheel" id="spin-wheel">
-              <svg viewBox="0 0 300 300" class="wheel-svg" id="wheel-svg"></svg>
-              <div class="wheel-center-label">SPIN</div>
+          <!-- Question Card (replaces wheel) -->
+          <div class="spin-card-area" id="spin-card-area">
+            <p class="spin-turn-label" id="spin-turn-label"></p>
+            <div class="spin-card-flip" id="spin-card-flip">
+              <div class="spin-card-inner" id="spin-card-inner">
+                <div class="spin-card-front">
+                  <span class="spin-card-q">?</span>
+                </div>
+                <div class="spin-card-back">
+                  <p class="spin-card-question" id="spin-card-question"></p>
+                </div>
+              </div>
             </div>
-            <button type="button" class="btn-primary-full spin-go-btn" id="spin-go-btn">Spin it!</button>
+            <button type="button" class="btn-primary-full spin-go-btn" id="spin-go-btn">Reveal question</button>
           </div>
 
           <!-- Question reveal -->
@@ -613,8 +638,11 @@
             <p id="spin-fun-fact-text"></p>
           </div>
 
+          <div class="spin-pot-winnings" id="spin-pot-winnings" hidden></div>
+
           <div class="answer-actions">
             <button type="button" class="action-btn" id="spin-again-btn">Next turn</button>
+            <button type="button" class="action-btn" id="spin-end-game-btn" hidden>End game & pay out</button>
             <button type="button" class="action-btn" id="spin-new-game-btn">New game</button>
           </div>
         </div>
@@ -644,6 +672,79 @@
             <input id="outcome-actual-payoff" class="input" type="number" step="1" placeholder="e.g. 75000">
           </div>
           <button type="button" class="btn-primary-full" id="log-outcome-btn">Log outcome</button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Wallet modal -->
+    <dialog id="wallet-modal" class="modal" aria-labelledby="wallet-modal-heading">
+      <div class="modal-inner wallet-modal-inner">
+        <div class="modal-head">
+          <h2 id="wallet-modal-heading">Your Wallet</h2>
+          <button type="button" class="modal-close" id="wallet-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="wallet-balance-display">
+            <span class="wallet-balance-num" id="wallet-balance-num">0</span>
+            <span class="wallet-balance-label">coins</span>
+          </div>
+
+          <div class="wallet-section">
+            <h3>Buy Coins</h3>
+            <div class="wallet-packs" id="wallet-packs">
+              <button type="button" class="wallet-pack-btn" data-pack="pack-100">
+                <span class="pack-amount">100 coins</span>
+                <span class="pack-price">$1.99</span>
+              </button>
+              <button type="button" class="wallet-pack-btn" data-pack="pack-500">
+                <span class="pack-amount">500 coins</span>
+                <span class="pack-price">$7.99</span>
+                <span class="pack-save">Save 20%</span>
+              </button>
+              <button type="button" class="wallet-pack-btn" data-pack="pack-1200">
+                <span class="pack-amount">1,200 coins</span>
+                <span class="pack-price">$14.99</span>
+                <span class="pack-save">Save 37%</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="wallet-section">
+            <h3>Redeem for Gift Cards</h3>
+            <div class="wallet-gifts" id="wallet-gifts">
+              <button type="button" class="wallet-gift-btn" data-gift="amazon-5">
+                <span class="gift-name">Amazon $5</span>
+                <span class="gift-cost">350 coins</span>
+              </button>
+              <button type="button" class="wallet-gift-btn" data-gift="amazon-10">
+                <span class="gift-name">Amazon $10</span>
+                <span class="gift-cost">650 coins</span>
+              </button>
+              <button type="button" class="wallet-gift-btn" data-gift="uber-5">
+                <span class="gift-name">Uber Eats $5</span>
+                <span class="gift-cost">350 coins</span>
+              </button>
+              <button type="button" class="wallet-gift-btn" data-gift="starbucks-5">
+                <span class="gift-name">Starbucks $5</span>
+                <span class="gift-cost">350 coins</span>
+              </button>
+              <button type="button" class="wallet-gift-btn" data-gift="steam-10">
+                <span class="gift-name">Steam $10</span>
+                <span class="gift-cost">650 coins</span>
+              </button>
+              <button type="button" class="wallet-gift-btn" data-gift="spotify-10">
+                <span class="gift-name">Spotify $10</span>
+                <span class="gift-cost">650 coins</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="wallet-section">
+            <h3>Recent Transactions</h3>
+            <div class="wallet-transactions" id="wallet-transactions">
+              <p class="empty">No transactions yet</p>
+            </div>
+          </div>
         </div>
       </div>
     </dialog>

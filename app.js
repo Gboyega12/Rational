@@ -2764,6 +2764,133 @@
   });
 
   // ================================================================
+  // WALLET — Coin system
+  // ================================================================
+  function getWalletUserId() {
+    let id = localStorage.getItem('rational_wallet_id');
+    if (!id) {
+      id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem('rational_wallet_id', id);
+    }
+    return id;
+  }
+
+  let walletBalance = parseInt(localStorage.getItem('rational_wallet_balance') || '0', 10);
+
+  function updateWalletBadge() {
+    const badge = $('#wallet-badge');
+    if (badge) badge.textContent = walletBalance;
+  }
+  updateWalletBadge();
+
+  async function fetchWallet() {
+    try {
+      const res = await fetch(`/api/wallet?userId=${getWalletUserId()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      walletBalance = data.balance;
+      localStorage.setItem('rational_wallet_balance', walletBalance);
+      updateWalletBadge();
+      return data;
+    } catch { return null; }
+  }
+
+  // Wallet modal
+  const walletModal = $('#wallet-modal');
+  $('#wallet-btn').addEventListener('click', async () => {
+    const data = await fetchWallet();
+    if (data) {
+      $('#wallet-balance-num').textContent = data.balance;
+      const txEl = $('#wallet-transactions');
+      if (data.transactions && data.transactions.length > 0) {
+        txEl.innerHTML = data.transactions.slice().reverse().map(tx =>
+          `<div class="wallet-tx">
+            <span class="wallet-tx-desc">${escapeHtml(tx.description)}</span>
+            <span class="wallet-tx-amount ${tx.amount >= 0 ? 'positive' : 'negative'}">${tx.amount >= 0 ? '+' : ''}${tx.amount}</span>
+          </div>`
+        ).join('');
+      } else {
+        txEl.innerHTML = '<p class="empty">No transactions yet</p>';
+      }
+    }
+    walletModal.showModal();
+  });
+
+  $('#wallet-modal-close').addEventListener('click', () => walletModal.close());
+  walletModal.addEventListener('click', (e) => {
+    if (e.target === walletModal) walletModal.close();
+  });
+
+  // Buy coins
+  $('#wallet-packs').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.wallet-pack-btn');
+    if (!btn) return;
+    const packId = btn.dataset.pack;
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+
+    try {
+      const res = await fetch('/api/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'buy', userId: getWalletUserId(), packId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      walletBalance = data.balance;
+      localStorage.setItem('rational_wallet_balance', walletBalance);
+      updateWalletBadge();
+      $('#wallet-balance-num').textContent = walletBalance;
+      // Re-fetch to update transactions
+      const full = await fetchWallet();
+      if (full) {
+        const txEl = $('#wallet-transactions');
+        txEl.innerHTML = full.transactions.slice().reverse().map(tx =>
+          `<div class="wallet-tx">
+            <span class="wallet-tx-desc">${escapeHtml(tx.description)}</span>
+            <span class="wallet-tx-amount ${tx.amount >= 0 ? 'positive' : 'negative'}">${tx.amount >= 0 ? '+' : ''}${tx.amount}</span>
+          </div>`
+        ).join('');
+      }
+    } catch (err) {
+      alert(err.message || 'Purchase failed');
+    } finally {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  });
+
+  // Redeem gift cards
+  $('#wallet-gifts').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.wallet-gift-btn');
+    if (!btn) return;
+    const giftCardId = btn.dataset.gift;
+    if (!confirm(`Redeem this gift card? It will be deducted from your coin balance.`)) return;
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'redeem', userId: getWalletUserId(), giftCardId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      walletBalance = data.balance;
+      localStorage.setItem('rational_wallet_balance', walletBalance);
+      updateWalletBadge();
+      $('#wallet-balance-num').textContent = walletBalance;
+      alert(data.message);
+    } catch (err) {
+      alert(err.message || 'Redemption failed');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ================================================================
   // HOT SEAT — Game mode
   // ================================================================
   const spinState = {
@@ -2771,8 +2898,7 @@
     participantId: null,
     pollInterval: null,
     vibe: 'random',
-    wheelSegments: 8,
-    currentRotation: 0,
+    stakeAmount: 0,
   };
 
   // Vibe picker
@@ -2784,6 +2910,26 @@
       spinVibeOptions.querySelectorAll('.personality-chip').forEach(c => c.classList.remove('selected'));
       chip.classList.add('selected');
       spinState.vibe = chip.dataset.vibe;
+    });
+  }
+
+  // Stakes toggle
+  const stakesToggle = $('#spin-stakes-toggle');
+  const stakesWrap = $('#spin-stakes-amount-wrap');
+  if (stakesToggle) {
+    stakesToggle.addEventListener('change', () => {
+      stakesWrap.hidden = !stakesToggle.checked;
+      spinState.stakeAmount = stakesToggle.checked ? 50 : 0;
+    });
+  }
+  const stakesOptions = $('#spin-stakes-options');
+  if (stakesOptions) {
+    stakesOptions.addEventListener('click', (e) => {
+      const chip = e.target.closest('.personality-chip');
+      if (!chip) return;
+      stakesOptions.querySelectorAll('.personality-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      spinState.stakeAmount = parseInt(chip.dataset.stake, 10);
     });
   }
 
@@ -2813,6 +2959,9 @@
     $('#spin-error').hidden = true;
     spinState.gameCode = null;
     spinState.participantId = null;
+    spinState.stakeAmount = 0;
+    if ($('#spin-stakes-toggle')) $('#spin-stakes-toggle').checked = false;
+    if ($('#spin-stakes-amount-wrap')) $('#spin-stakes-amount-wrap').hidden = true;
     stopSpinPolling();
   }
 
@@ -2862,10 +3011,27 @@
     $('#spin-create-btn').textContent = 'Creating...';
 
     try {
+      // If staked game, deduct coins first
+      if (spinState.stakeAmount > 0) {
+        if (walletBalance < spinState.stakeAmount) {
+          throw new Error(`Not enough coins! You need ${spinState.stakeAmount} but have ${walletBalance}. Buy more in your wallet.`);
+        }
+        const stakeRes = await fetch('/api/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stake', userId: getWalletUserId(), amount: spinState.stakeAmount }),
+        });
+        const stakeData = await stakeRes.json();
+        if (!stakeRes.ok) throw new Error(stakeData.error);
+        walletBalance = stakeData.balance;
+        localStorage.setItem('rational_wallet_balance', walletBalance);
+        updateWalletBadge();
+      }
+
       const res = await fetch('/api/spin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', creatorName: name, vibe: spinState.vibe }),
+        body: JSON.stringify({ action: 'create', creatorName: name, vibe: spinState.vibe, stakeAmount: spinState.stakeAmount }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create game');
@@ -2900,6 +3066,23 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to join');
 
+      // If staked game, deduct coins from joiner
+      if (data.stakeRequired && data.stakeRequired > 0) {
+        if (walletBalance < data.stakeRequired) {
+          throw new Error(`This game requires ${data.stakeRequired} coins to join. You have ${walletBalance}. Buy more in your wallet.`);
+        }
+        const stakeRes = await fetch('/api/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stake', userId: getWalletUserId(), amount: data.stakeRequired }),
+        });
+        const stakeData = await stakeRes.json();
+        if (!stakeRes.ok) throw new Error(stakeData.error);
+        walletBalance = stakeData.balance;
+        localStorage.setItem('rational_wallet_balance', walletBalance);
+        updateWalletBadge();
+      }
+
       spinState.gameCode = data.game.code;
       spinState.participantId = data.participantId;
       enterSpinRoom(data.game);
@@ -2920,7 +3103,16 @@
     $('#spin-vibe-badge').textContent = vibeLabels[game.vibe] || vibeLabels.random;
     $('#spin-room-code').textContent = game.code;
 
-    buildWheel(game);
+    // Show pot if staked game
+    const potBadge = $('#spin-pot-badge');
+    if (game.stakeAmount > 0) {
+      potBadge.hidden = false;
+      potBadge.textContent = `Pot: ${game.pot} coins (${game.stakeAmount} buy-in)`;
+    } else {
+      potBadge.hidden = true;
+    }
+
+    resetCardFlip();
     updateSpinParticipants(game);
     updateSpinUI(game);
     startSpinPolling();
@@ -2938,7 +3130,7 @@
   }
 
   function updateSpinUI(game) {
-    const wheelArea = $('#spin-wheel-area');
+    const cardArea = $('#spin-card-area');
     const questionArea = $('#spin-question-area');
     const answerInput = $('#spin-answer-input');
     const answerDone = $('#spin-answer-done');
@@ -2949,22 +3141,27 @@
     const hotSeatName = game.hotSeatPlayerName || 'someone';
 
     if (game.status === 'waiting') {
-      wheelArea.hidden = false;
+      cardArea.hidden = false;
       questionArea.hidden = true;
       goBtn.hidden = false;
 
+      resetCardFlip();
+      const turnLabel = $('#spin-turn-label');
       if (game.participants.length < 2) {
         goBtn.disabled = true;
         goBtn.textContent = 'Waiting for players...';
+        turnLabel.textContent = 'Share the game code to invite friends';
       } else if (isMyTurn) {
         goBtn.disabled = false;
-        goBtn.textContent = "You're up — Spin it!";
+        goBtn.textContent = "You're up — Flip it!";
+        turnLabel.textContent = "It's your turn!";
       } else {
         goBtn.disabled = true;
-        goBtn.textContent = `${hotSeatName}'s turn to spin...`;
+        goBtn.textContent = `Waiting for ${hotSeatName}...`;
+        turnLabel.textContent = `${hotSeatName}'s turn`;
       }
     } else if (game.status === 'answering') {
-      wheelArea.hidden = true;
+      cardArea.hidden = true;
       questionArea.hidden = false;
       $('#spin-question-text').textContent = game.question;
       $('#spin-question-label').textContent = isMyTurn ? "You're in the hot seat!" : `${hotSeatName} is in the hot seat!`;
@@ -3002,7 +3199,7 @@
       const hotSeatPlayer = game.participants.find(p => p.id === game.hotSeatPlayerId);
       judgeBtn.hidden = !(isCreator && hotSeatPlayer && hotSeatPlayer.hasAnswer);
     } else if (game.status === 'judging') {
-      wheelArea.hidden = true;
+      cardArea.hidden = true;
       questionArea.hidden = false;
       answerInput.hidden = true;
       answerDone.hidden = true;
@@ -3014,80 +3211,42 @@
     }
   }
 
-  // Build the wheel SVG
-  function buildWheel(game) {
-    const svg = $('#wheel-svg');
-    const segments = spinState.wheelSegments;
-    const colors = [
-      'rgba(215,25,33,0.7)', 'rgba(168,85,247,0.7)',
-      'rgba(68,138,255,0.7)', 'rgba(0,230,118,0.7)',
-      'rgba(255,145,0,0.7)', 'rgba(215,25,33,0.5)',
-      'rgba(168,85,247,0.5)', 'rgba(68,138,255,0.5)',
-    ];
-    const labels = ['?', '!', '???', '!!', '?!', '!!?', '?', '!'];
-    const cx = 150, cy = 150, r = 140;
-    let html = '';
-
-    for (let i = 0; i < segments; i++) {
-      const startAngle = (i * 360 / segments - 90) * Math.PI / 180;
-      const endAngle = ((i + 1) * 360 / segments - 90) * Math.PI / 180;
-      const x1 = cx + r * Math.cos(startAngle);
-      const y1 = cy + r * Math.sin(startAngle);
-      const x2 = cx + r * Math.cos(endAngle);
-      const y2 = cy + r * Math.sin(endAngle);
-      const largeArc = (360 / segments > 180) ? 1 : 0;
-
-      html += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z" fill="${colors[i % colors.length]}" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>`;
-
-      // Label
-      const midAngle = ((i + 0.5) * 360 / segments - 90) * Math.PI / 180;
-      const lx = cx + (r * 0.65) * Math.cos(midAngle);
-      const ly = cy + (r * 0.65) * Math.sin(midAngle);
-      html += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central" fill="white" font-size="18" font-weight="700" opacity="0.7">${labels[i]}</text>`;
-    }
-
-    // Center circle
-    html += `<circle cx="${cx}" cy="${cy}" r="22" fill="#111" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>`;
-
-    svg.innerHTML = html;
+  // Card flip helpers
+  function resetCardFlip() {
+    const inner = $('#spin-card-inner');
+    if (inner) inner.classList.remove('flipped');
   }
 
-  // SPIN action
+  // REVEAL action (card flip)
   $('#spin-go-btn').addEventListener('click', async () => {
     const goBtn = $('#spin-go-btn');
     goBtn.disabled = true;
-    goBtn.textContent = 'Spinning...';
+    goBtn.textContent = 'Flipping...';
 
-    // Animate the wheel
-    const svg = $('#wheel-svg');
-    const extraSpins = 5 + Math.floor(Math.random() * 5);
-    const landAngle = Math.floor(Math.random() * 360);
-    const totalRotation = spinState.currentRotation + (extraSpins * 360) + landAngle;
-    spinState.currentRotation = totalRotation;
+    try {
+      // Call API first to get the question
+      const res = await fetch('/api/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'spin', code: spinState.gameCode, participantId: spinState.participantId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to get question');
 
-    svg.classList.add('spinning');
-    svg.style.transform = `rotate(${totalRotation}deg)`;
+      // Set the question on the card back, then flip
+      $('#spin-card-question').textContent = data.game.question;
+      $('#spin-card-inner').classList.add('flipped');
 
-    // Wait for animation, then call API
-    setTimeout(async () => {
-      try {
-        const res = await fetch('/api/spin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'spin', code: spinState.gameCode, participantId: spinState.participantId }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Spin failed');
-
+      // Wait for flip animation, then show the question/answer UI
+      setTimeout(() => {
         updateSpinUI(data.game);
         updateSpinParticipants(data.game);
-      } catch (err) {
-        showSpinError(err.message);
-      } finally {
-        goBtn.disabled = false;
-        goBtn.textContent = 'Spin it!';
-      }
-    }, 4200);
+      }, 1200);
+    } catch (err) {
+      showSpinError(err.message);
+      goBtn.disabled = false;
+      goBtn.textContent = "Flip it!";
+    }
   });
 
   // Copy game code as invite link
@@ -3227,6 +3386,19 @@
       $('#spin-fun-fact-text').textContent = r.fun_fact;
     }
 
+    // Show pot info and end game button for staked games
+    const potWinnings = $('#spin-pot-winnings');
+    const endGameBtn = $('#spin-end-game-btn');
+    if (game.stakeAmount > 0) {
+      potWinnings.hidden = false;
+      potWinnings.innerHTML = `<p class="spin-pot-badge" style="display:inline-block">Pot: ${game.pot} coins</p>`;
+      const isCreator = game.participants[0]?.id === spinState.participantId;
+      endGameBtn.hidden = !isCreator;
+    } else {
+      potWinnings.hidden = true;
+      endGameBtn.hidden = true;
+    }
+
     setTimeout(observeRevealSections, 100);
   }
 
@@ -3238,9 +3410,56 @@
     $('#spin-answer-input').hidden = false;
     $('#spin-answer-done').hidden = true;
     $('#spin-question-area').hidden = true;
-    $('#spin-wheel-area').hidden = false;
+    $('#spin-card-area').hidden = false;
     $('#spin-fun-fact').hidden = true;
+    resetCardFlip();
     startSpinPolling();
+  });
+
+  // End game & pay out winner
+  $('#spin-end-game-btn').addEventListener('click', async () => {
+    const btn = $('#spin-end-game-btn');
+    btn.disabled = true;
+    btn.textContent = 'Paying out...';
+
+    try {
+      // Get latest game state
+      const res = await fetch(`/api/spin?code=${spinState.gameCode}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error('Could not fetch game');
+
+      const game = data.game;
+      if (!game.stakeAmount || game.pot <= 0) throw new Error('No pot to pay out');
+
+      // Find the winner (highest score)
+      const sorted = [...game.participants].sort((a, b) => (b.score || 0) - (a.score || 0));
+      const winner = sorted[0];
+
+      // If I'm the winner, claim the pot
+      if (winner.id === spinState.participantId) {
+        const winRes = await fetch('/api/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'win', userId: getWalletUserId(), potTotal: game.pot, playerCount: game.participants.length }),
+        });
+        const winData = await winRes.json();
+        if (!winRes.ok) throw new Error(winData.error);
+
+        walletBalance = winData.balance;
+        localStorage.setItem('rational_wallet_balance', walletBalance);
+        updateWalletBadge();
+        alert(`You won ${winData.winnings} coins! (${winData.rake} house fee)`);
+      } else {
+        alert(`${winner.name} won the pot of ${game.pot} coins! Better luck next time.`);
+      }
+
+      resetSpinLobby();
+    } catch (err) {
+      alert(err.message || 'Payout failed');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'End game & pay out';
+    }
   });
 
   // New game

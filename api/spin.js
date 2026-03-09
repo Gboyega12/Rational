@@ -128,6 +128,8 @@ function sanitizeGame(game) {
       score: p.score || 0,
     })),
     result: game.result,
+    stakeAmount: game.stakeAmount || 0,
+    pot: game.pot || 0,
   };
 }
 
@@ -153,7 +155,7 @@ export default async function handler(req, res) {
 
   // CREATE game
   if (action === 'create') {
-    const { creatorName, vibe } = req.body;
+    const { creatorName, vibe, stakeAmount } = req.body;
     const validVibes = ['random', 'pop-culture', 'deep-thinks', 'hot-takes', 'animal-sounds'];
     const gameVibe = validVibes.includes(vibe) ? vibe : 'random';
 
@@ -175,6 +177,8 @@ export default async function handler(req, res) {
       }],
       result: null,
       usedQuestions: [],
+      stakeAmount: stakeAmount && stakeAmount >= 10 ? stakeAmount : 0,
+      pot: stakeAmount && stakeAmount >= 10 ? stakeAmount : 0,
     };
     games.set(code, game);
 
@@ -202,9 +206,15 @@ export default async function handler(req, res) {
     };
     game.participants.push(participant);
 
+    // Add to pot if staked game
+    if (game.stakeAmount > 0) {
+      game.pot += game.stakeAmount;
+    }
+
     return res.status(200).json({
       game: sanitizeGame(game),
       participantId: participant.id,
+      stakeRequired: game.stakeAmount,
     });
   }
 
