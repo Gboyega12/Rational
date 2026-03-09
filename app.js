@@ -246,6 +246,40 @@
   };
 
   // ================================================================
+  // THEME TOGGLE — Dark / Light mode
+  // ================================================================
+  const THEME_KEY = 'rational_theme';
+  function initTheme() {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      updateThemeIcons('light');
+    }
+  }
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'light' ? 'dark' : 'light';
+    if (next === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    localStorage.setItem(THEME_KEY, next);
+    updateThemeIcons(next);
+  }
+  function updateThemeIcons(theme) {
+    const sun = $('.theme-icon-sun');
+    const moon = $('.theme-icon-moon');
+    if (sun && moon) {
+      sun.style.display = theme === 'light' ? 'none' : '';
+      moon.style.display = theme === 'light' ? '' : 'none';
+    }
+  }
+  initTheme();
+  const themeBtn = $('#theme-toggle-btn');
+  if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
+  // ================================================================
   // SCREEN MANAGEMENT
   // ================================================================
   function showScreen(id) {
