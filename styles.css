@@ -186,6 +186,115 @@ body.particles-thinking .thinking-visual {
   transition: opacity 0.3s ease;
 }
 
+/* ============================================================
+   CUSTOM CURSOR — Branded dot cursor (desktop only)
+   ============================================================ */
+@media (hover: hover) and (pointer: fine) {
+  body.particles-ready {
+    cursor: none;
+  }
+  body.particles-ready a,
+  body.particles-ready button,
+  body.particles-ready input,
+  body.particles-ready textarea,
+  body.particles-ready select,
+  body.particles-ready [role="button"] {
+    cursor: none;
+  }
+}
+
+#custom-cursor {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mustard);
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: width 0.15s var(--spring), height 0.15s var(--spring), background 0.2s ease, opacity 0.2s ease;
+  mix-blend-mode: difference;
+  opacity: 0;
+}
+#custom-cursor.visible { opacity: 1; }
+#custom-cursor.hover {
+  width: 40px;
+  height: 40px;
+  background: var(--fg-20);
+}
+#custom-cursor.clicking {
+  width: 8px;
+  height: 8px;
+  background: var(--red);
+}
+/* Color cursor based on which card is hovered */
+.door-spin:hover ~ #custom-cursor,
+#custom-cursor.cursor-mustard { background: var(--mustard); }
+#custom-cursor.cursor-red { background: var(--red); }
+#custom-cursor.cursor-blue { background: var(--matte-blue); }
+
+#cursor-ring {
+  position: fixed;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--fg-20);
+  pointer-events: none;
+  z-index: 9997;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s var(--spring), height 0.3s var(--spring), border-color 0.2s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+#cursor-ring.visible { opacity: 1; }
+#cursor-ring.hover {
+  width: 56px;
+  height: 56px;
+  border-color: var(--mustard);
+}
+
+/* ============================================================
+   SCROLL REVEAL — Enhanced with parallax for answer sections
+   ============================================================ */
+.reveal-section {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.7s var(--spring), transform 0.7s var(--spring);
+}
+.reveal-section.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger children for cascading reveal */
+.reveal-section:nth-child(2) { transition-delay: 0.1s; }
+.reveal-section:nth-child(3) { transition-delay: 0.2s; }
+.reveal-section:nth-child(4) { transition-delay: 0.3s; }
+.reveal-section:nth-child(5) { transition-delay: 0.4s; }
+
+/* ============================================================
+   SOUND TOGGLE
+   ============================================================ */
+#sound-toggle {
+  position: fixed;
+  bottom: env(safe-area-inset-bottom, 16px);
+  right: 16px;
+  z-index: 100;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg-60);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+  opacity: 0.6;
+}
+#sound-toggle:hover { opacity: 1; border-color: var(--mustard); color: var(--mustard); }
+#sound-toggle.active { opacity: 1; color: var(--mustard); border-color: var(--mustard); }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
@@ -1697,6 +1806,46 @@ body {
   .door-title { font-size: var(--text-2xl); }
   .door-glyph { width: 64px; height: 64px; }
   .glyph-icon { width: 36px; height: 36px; }
+}
+
+/* Desktop-first premium layout for Awwwards */
+@media (min-width: 1024px) {
+  .container { max-width: 800px; }
+
+  /* Hero greeting — dramatic scale */
+  #home-heading { font-size: 6rem; letter-spacing: -0.06em; }
+  .greeting-sub-text { font-size: var(--text-xl); max-width: 480px; }
+
+  /* Cards get larger with more breathing room */
+  .home-doors { gap: var(--space-8); }
+  .home-door {
+    padding: var(--space-12) var(--space-10);
+    border-radius: var(--radius-xl);
+  }
+  .door-ascii-art { width: 120px; height: 120px; }
+  .door-ascii-art pre { font-size: 0.8rem; }
+  .door-title { font-size: var(--text-2xl); }
+  .door-desc { font-size: var(--text-base); }
+
+  /* Answer screen — editorial width */
+  .answer-wrap { max-width: 720px; margin: 0 auto; }
+  .answer-title { font-size: var(--text-3xl); }
+  .answer-hero { padding: var(--space-16) 0; }
+
+  /* Bigger mic button */
+  .mic-btn-lg { width: 108px; height: 108px; }
+
+  /* Input area wider */
+  .journal-input { font-size: var(--text-lg); }
+}
+
+/* Ultra-wide — center with max constraint */
+@media (min-width: 1440px) {
+  .container { max-width: 920px; }
+  #home-heading { font-size: 7rem; }
+  .home-door { padding: var(--space-16) var(--space-12); }
+  .door-ascii-art { width: 140px; height: 140px; }
+  .door-ascii-art pre { font-size: 0.9rem; }
 }
 
 /* ============================================================

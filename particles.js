@@ -537,6 +537,9 @@
     // Suppress CSS fadeUp during particle transition
     document.body.classList.add('particle-transition');
 
+    // Sound effect
+    if (window.RationalSound) window.RationalSound.playSound('whoosh');
+
     // Phase 1: Current dots scatter outward
     const tl = gsap.timeline({
       onComplete: () => {
@@ -610,6 +613,7 @@
   // ================================================================
   function dotMatrixReveal(element) {
     if (!element) return;
+    if (window.RationalSound) window.RationalSound.playSound('reveal');
 
     element.classList.add('dot-reveal-active');
     const text = element.textContent;
@@ -758,6 +762,7 @@
   // ================================================================
   function playAnswerBurst() {
     if (!isReady) return;
+    if (window.RationalSound) window.RationalSound.playSound('burst');
 
     const centerX = window.innerWidth / 2;
     const centerY = window.innerHeight * 0.2;
@@ -905,6 +910,82 @@
     updateRipples();
   }
 
+  // ================================================================
+  // SCROLL DRIFT — gentle parallax on scroll
+  // ================================================================
+  function applyScrollDrift(delta) {
+    const drift = delta * 0.08;
+    for (let i = 0; i < dots.length; i++) {
+      const dot = dots[i];
+      if (!dot.alive || dot.free) continue;
+      // Drift proportional to distance from center
+      const offset = (dot.x / window.innerWidth - 0.5) * drift;
+      dot.applyForce(offset * 0.3, drift * 0.1);
+    }
+  }
+
+  // ================================================================
+  // ASCII ART RASTERIZATION — convert text art to dot particles on hover
+  // ================================================================
+  function rasterizeAsciiArt(preElement, cardRect, color) {
+    if (!preElement || !isReady) return;
+
+    // Create offscreen canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const scale = 2;
+    canvas.width = cardRect.width * scale;
+    canvas.height = cardRect.height * scale;
+
+    // Render the text
+    const text = preElement.textContent;
+    const lines = text.split('\n').filter(l => l.trim());
+    ctx.font = `${10 * scale}px "Space Mono", monospace`;
+    ctx.fillStyle = '#ffffff';
+
+    lines.forEach((line, i) => {
+      ctx.fillText(line, 10 * scale, (12 + i * 12) * scale);
+    });
+
+    // Sample pixels to get dot positions
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imageData.data;
+    const dotPositions = [];
+    const step = 4 * scale; // Sample every Nth pixel
+
+    for (let y = 0; y < canvas.height; y += step) {
+      for (let x = 0; x < canvas.width; x += step) {
+        const idx = (y * canvas.width + x) * 4;
+        if (pixels[idx + 3] > 100) { // Non-transparent
+          dotPositions.push({
+            x: cardRect.left + (x / scale),
+            y: cardRect.top + (y / scale),
+          });
+        }
+      }
+    }
+
+    // Create particles at these positions
+    const newDots = [];
+    const maxAsciiDots = Math.min(dotPositions.length, isMobile ? 40 : 80);
+    for (let i = 0; i < maxAsciiDots; i++) {
+      const pos = dotPositions[Math.floor(Math.random() * dotPositions.length)];
+      const dot = createDot(pos.x, pos.y, color, 2);
+      if (!dot) break;
+      dot.targetAlpha = 0.6;
+      dot.phase = 'ascii';
+      newDots.push(dot);
+
+      // Start from center of card and fly to position
+      dot.setPosition(
+        cardRect.left + cardRect.width / 2,
+        cardRect.top + cardRect.height / 2
+      );
+    }
+
+    return newDots;
+  }
+
   // Expose API for app.js to call
   window.RationalParticles = {
     init,
@@ -915,6 +996,8 @@
     playAnswerBurst,
     spawnHomeDots,
     clearDots,
+    applyScrollDrift,
+    rasterizeAsciiArt,
     get isReady() { return isReady; },
   };
 
