@@ -1397,6 +1397,7 @@
   // Outcome modal
   const outcomeModal = $('#outcome-modal');
   let currentLoggingId = null;
+  let outcomeChangeHandler = null;
 
   function openOutcomeModal(id) {
     const d = Store.getDecision(id);
@@ -1407,7 +1408,9 @@
     os.innerHTML = '<option value="">—</option>';
     (d.options || []).forEach((name, i) => { os.innerHTML += `<option value="${i}">${letterForIndex(i)}. ${escapeHtml(name)}</option>`; });
 
-    os.addEventListener('change', () => {
+    // Remove previous listener to prevent accumulation
+    if (outcomeChangeHandler) os.removeEventListener('change', outcomeChangeHandler);
+    outcomeChangeHandler = () => {
       const oi = os.value;
       const rs = $('#outcome-which-result');
       rs.innerHTML = '<option value="">—</option>';
@@ -1415,7 +1418,8 @@
         d.outcomes[oi].forEach((o, idx) => { rs.innerHTML += `<option value="${idx}">${escapeHtml(o.description || 'Outcome ' + (idx + 1))}</option>`; });
         rs.innerHTML += '<option value="other">Something else</option>';
       }
-    }, { once: false });
+    };
+    os.addEventListener('change', outcomeChangeHandler);
 
     outcomeModal.showModal();
   }
