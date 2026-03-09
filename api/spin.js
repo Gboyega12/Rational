@@ -79,28 +79,6 @@ const questionBank = {
     "Remote work vs office — what's actually better for society?",
     "What's a hill you're willing to die on that most people disagree with?",
   ],
-  'animal-sounds': [
-    "Do your best impression of an angry cat. Type out exactly how it sounds!",
-    "What does a rooster sound like at 5am? Write it out!",
-    "Type out the sound a dolphin makes — get creative!",
-    "How does a goat scream? Write it out in text!",
-    "Do your best monkey impression! Type out every sound!",
-    "What noise does an elephant make when it's excited? Write it!",
-    "Type out the sound of a really dramatic parrot!",
-    "What does a whale song sound like? Write it in words!",
-    "How would you text someone the sound a hyena makes laughing?",
-    "Do your best snake hiss impression. Make it dramatic!",
-    "What sound does a penguin make? Type it out!",
-    "Write out what a wolf howl sounds like — full commitment!",
-    "Type the sound of a chicken getting surprised!",
-    "What does an owl sound like at midnight? Write it out!",
-    "Do your best impression of a seal clapping and barking!",
-    "What does a frog sound like when it's trying to impress another frog?",
-    "Write out exactly how a donkey sounds when it's being dramatic!",
-    "What noise does a turkey make? Go all out!",
-    "Type out the sound of a hawk swooping down for the kill!",
-    "Do your best impression of two pigeons having an argument!",
-  ],
 };
 
 function pickQuestion(vibe) {
@@ -128,6 +106,7 @@ function sanitizeGame(game) {
     })),
     paidOut: game.paidOut || false,
     result: game.result,
+    reactions: game.reactions || [],
     stakeAmount: game.stakeAmount || 0,
     pot: game.pot || 0,
   };
@@ -156,7 +135,7 @@ export default async function handler(req, res) {
   // CREATE game
   if (action === 'create') {
     const { creatorName, vibe, stakeAmount, walletUserId } = req.body;
-    const validVibes = ['random', 'pop-culture', 'deep-thinks', 'hot-takes', 'animal-sounds'];
+    const validVibes = ['random', 'pop-culture', 'deep-thinks', 'hot-takes'];
     const gameVibe = validVibes.includes(vibe) ? vibe : 'random';
 
     const code = generateCode();
@@ -176,6 +155,7 @@ export default async function handler(req, res) {
         walletUserId: walletUserId || null,
       }],
       result: null,
+      reactions: [],
       usedQuestions: [],
       stakeAmount: stakeAmount && stakeAmount >= 10 ? stakeAmount : 0,
       pot: stakeAmount && stakeAmount >= 10 ? stakeAmount : 0,
@@ -266,6 +246,7 @@ export default async function handler(req, res) {
     // Clear ALL players' answers
     game.participants.forEach(p => { p.answer = null; });
     game.result = null;
+    game.reactions = [];
 
     return res.status(200).json({ game: sanitizeGame(game) });
   }
@@ -395,25 +376,47 @@ export default async function handler(req, res) {
     });
   }
 
+  // NEXTROUND — transition game back to waiting state for all players
+  if (action === 'nextround') {
+    const code = (req.body.code || '').toUpperCase();
+    const game = games.get(code);
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.status !== 'judged') return res.status(400).json({ error: 'Game is not in judged state' });
+
+    game.status = 'waiting';
+    game.question = null;
+    game.result = null;
+    game.reactions = [];
+    game.participants.forEach(p => { p.answer = null; });
+
+    return res.status(200).json({ game: sanitizeGame(game) });
+  }
+
+  // REACT — broadcast emoji reaction to all players
+  if (action === 'react') {
+    const code = (req.body.code || '').toUpperCase();
+    const game = games.get(code);
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+
+    const { participantId, emoji } = req.body;
+    const validEmojis = ['🔥', '💀', '😂', '🧠', '💩'];
+    if (!validEmojis.includes(emoji)) return res.status(400).json({ error: 'Invalid emoji' });
+
+    const player = game.participants.find(p => p.id === participantId);
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+
+    // Keep last 20 reactions only
+    game.reactions.push({ emoji, player: player.name, ts: Date.now() });
+    if (game.reactions.length > 20) game.reactions = game.reactions.slice(-20);
+
+    return res.status(200).json({ ok: true });
+  }
+
   return res.status(400).json({ error: 'Unknown action' });
 }
 
 async function judgeAllAnswers(apiKey, game) {
-  const isAnimalSounds = game.vibe === 'animal-sounds';
-
-  const systemPrompt = isAnimalSounds
-    ? `You are the judge of a hilarious group game called "Animal Sounds". ALL players had to type out their best animal sound impression for the same prompt. Your job is to rate each player's attempt, compare them, and pick a round winner.
-
-JUDGING CRITERIA for each player:
-- Accuracy — does it actually sound like the animal?
-- Creativity — did they go above and beyond?
-- Comedy value — is it hilarious to read?
-- Commitment — did they fully send it or phone it in?
-
-SCORING: Give each player a score from 1-10. A basic attempt gets 4-5, a decent one gets 6-7, a hilarious one gets 8-9, an absolute masterpiece gets 10.
-
-PERSONALITY: Be absolutely hilarious. React like you're dying laughing or deeply confused. Roast bad attempts. Hype up good ones. Use gen-z language. Be dramatic. Compare the players against each other — who did it best, who flopped hardest?`
-    : `You are the judge of a fun group game. ALL players answered the same question at the same time. Your job is to rate each player's answer, compare them against each other, and pick a round winner.
+  const systemPrompt = `You are the judge of a fun group game. ALL players answered the same question at the same time. Your job is to rate each player's answer, compare them against each other, and pick a round winner.
 
 JUDGING CRITERIA for each player:
 - Creativity and originality (did they bring something unique?)

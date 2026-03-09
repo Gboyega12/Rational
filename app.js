@@ -3164,7 +3164,7 @@
     $('#spin-room').hidden = false;
     $('#spin-results').hidden = true;
 
-    const vibeLabels = { random: '🎲 Random', 'pop-culture': '🎬 Pop culture', 'deep-thinks': '🧠 Deep thinks', 'hot-takes': '🌶️ Hot takes', 'animal-sounds': '🐒 Animal sounds' };
+    const vibeLabels = { random: '🎲 Random', 'pop-culture': '🎬 Pop culture', 'deep-thinks': '🧠 Deep thinks', 'hot-takes': '🌶️ Hot takes' };
     $('#spin-vibe-badge').textContent = vibeLabels[game.vibe] || vibeLabels.random;
     $('#spin-room-code').textContent = game.code;
 
@@ -3378,10 +3378,12 @@
   });
 
   function renderSpinResults(game) {
-    stopSpinPolling();
+    // Keep polling alive so other players see next-turn transitions and reactions
     stopSpinTimer();
     const r = game.result;
     if (!r) return;
+    // Don't re-render if already showing results for this round
+    if (spinState.lastGameData && spinState.lastGameData.round === game.round && !$('#spin-results').hidden) return;
 
     spinState.lastGameData = game;
 
@@ -3482,8 +3484,28 @@
     setTimeout(observeRevealSections, 100);
   }
 
-  // Next round
-  $('#spin-again-btn').addEventListener('click', () => {
+  // Next round — tell server so ALL players transition
+  $('#spin-again-btn').addEventListener('click', async () => {
+    const btn = $('#spin-again-btn');
+    btn.disabled = true;
+    btn.textContent = 'Starting...';
+    try {
+      await fetch('/api/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'nextround', code: spinState.gameCode }),
+      });
+      // Local transition (other players get it via polling)
+      transitionToWaiting();
+    } catch (err) {
+      showSpinError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Next turn';
+    }
+  });
+
+  function transitionToWaiting() {
     $('#spin-results').hidden = true;
     $('#spin-room').hidden = false;
     $('#spin-answer-textarea').value = '';
@@ -3493,12 +3515,10 @@
     $('#spin-card-area').hidden = false;
     $('#spin-fun-fact').hidden = true;
     $('#spin-reactions').hidden = true;
-    $('#spin-go-btn').disabled = false;
-    $('#spin-go-btn').textContent = 'Flip the card!';
     stopSpinTimer();
     resetCardFlip();
-    startSpinPolling();
-  });
+    lastReactionTs = 0;
+  }
 
   // End game & pay out winner
   $('#spin-end-game-btn').addEventListener('click', async () => {
@@ -3598,23 +3618,48 @@
     if (timerEl) timerEl.hidden = true;
   }
 
-  // ── Emoji reactions ──
+  // ── Emoji reactions (broadcast to all players) ──
+  let lastReactionTs = 0;
   const reactionsEl = $('#spin-reactions');
   if (reactionsEl) {
-    reactionsEl.addEventListener('click', (e) => {
+    reactionsEl.addEventListener('click', async (e) => {
       const btn = e.target.closest('.spin-react-btn');
-      if (!btn) return;
+      if (!btn || !spinState.gameCode) return;
       const emoji = btn.dataset.emoji;
-      // Float animation from button position
-      const rect = btn.getBoundingClientRect();
-      const float = document.createElement('span');
-      float.className = 'spin-react-float';
-      float.textContent = emoji;
-      float.style.left = `${rect.left + rect.width / 2 - 12}px`;
-      float.style.top = `${rect.top}px`;
-      document.body.appendChild(float);
-      float.addEventListener('animationend', () => float.remove());
+      // Local float immediately
+      spawnReactionFloat(emoji, btn);
+      // Send to server for other players
+      try {
+        await fetch('/api/spin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'react', code: spinState.gameCode, participantId: spinState.participantId, emoji }),
+        });
+      } catch {}
     });
+  }
+
+  function spawnReactionFloat(emoji, anchorEl) {
+    const rect = anchorEl
+      ? anchorEl.getBoundingClientRect()
+      : { left: window.innerWidth / 2 - 12, top: window.innerHeight * 0.4, width: 24 };
+    const float = document.createElement('span');
+    float.className = 'spin-react-float';
+    float.textContent = emoji;
+    float.style.left = `${rect.left + rect.width / 2 - 12 + (Math.random() * 40 - 20)}px`;
+    float.style.top = `${rect.top}px`;
+    document.body.appendChild(float);
+    float.addEventListener('animationend', () => float.remove());
+  }
+
+  function processNewReactions(reactions) {
+    if (!reactions || !reactions.length) return;
+    for (const r of reactions) {
+      if (r.ts > lastReactionTs) {
+        lastReactionTs = r.ts;
+        spawnReactionFloat(r.emoji, null);
+      }
+    }
   }
 
   // ── Share results card (canvas rendered) ──
@@ -3800,9 +3845,19 @@
         const data = await res.json();
         updateSpinParticipants(data.game);
 
+        // Process emoji reactions from other players
+        processNewReactions(data.game.reactions);
+
         // If game was paid out, refresh wallet balance for all players
         if (data.game.paidOut) {
           fetchWallet();
+        }
+
+        // If we're on results screen but server moved to 'waiting' (host clicked next turn)
+        // → auto-transition back to game room for ALL players
+        const resultsVisible = !$('#spin-results').hidden;
+        if (resultsVisible && data.game.status === 'waiting') {
+          transitionToWaiting();
         }
 
         // If status changed to judged, show results
