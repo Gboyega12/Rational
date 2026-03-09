@@ -1308,10 +1308,10 @@
     const sub = $('#answer-subtitle');
     if (heading) text += `Answer: ${heading.textContent}\n`;
     if (sub) text += `${sub.textContent}\n\n`;
-    $$('.why-card').forEach(card => {
-      const summary = card.querySelector('summary');
-      const body = card.querySelector('.why-body .narrative');
-      if (summary) text += `${summary.textContent.trim()}\n${'-'.repeat(30)}\n`;
+    $$('.analysis-section, .why-card').forEach(card => {
+      const title = card.querySelector('.analysis-section-title, summary');
+      const body = card.querySelector('.narrative, .why-body .narrative');
+      if (title) text += `${title.textContent.trim()}\n${'-'.repeat(30)}\n`;
       if (body) text += body.textContent.trim() + '\n\n';
     });
     const blob = new Blob([text], { type: 'text/plain' });
@@ -2157,6 +2157,7 @@
 
     let finalTranscript = '';
     let stream = null;
+    let audioCtx = null;
     let animFrame = null;
 
     rec.onresult = (e) => {
@@ -2193,7 +2194,9 @@
 
       navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
         stream = s;
+        if (audioCtx) { try { audioCtx.close(); } catch {} }
         const ctx = new AudioContext();
+        audioCtx = ctx;
         const source = ctx.createMediaStreamSource(s);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 64;
@@ -2227,6 +2230,7 @@
       if (micHint) micHint.textContent = hintText;
       try { rec.stop(); } catch {}
       if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
       if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
       if (canvas) {
         canvas.style.display = 'none';
@@ -2417,6 +2421,7 @@
     $('#debate-error').hidden = true;
     debateState.roomCode = null;
     debateState.participantId = null;
+    debateState.lastStatus = null;
     stopDebatePolling();
   }
 
@@ -2960,6 +2965,11 @@
     spinState.gameCode = null;
     spinState.participantId = null;
     spinState.stakeAmount = 0;
+    spinState.vibe = 'random';
+    // Reset vibe chip selection
+    $$('.vibe-chip').forEach(c => c.classList.remove('selected'));
+    const defaultChip = $('.vibe-chip[data-vibe="random"]');
+    if (defaultChip) defaultChip.classList.add('selected');
     if ($('#spin-stakes-toggle')) $('#spin-stakes-toggle').checked = false;
     if ($('#spin-stakes-amount-wrap')) $('#spin-stakes-amount-wrap').hidden = true;
     stopSpinPolling();
@@ -3010,6 +3020,7 @@
     $('#spin-create-btn').disabled = true;
     $('#spin-create-btn').textContent = 'Creating...';
 
+    let staked = false;
     try {
       if (spinState.stakeAmount > 0) {
         if (walletBalance < spinState.stakeAmount) {
@@ -3025,6 +3036,7 @@
         walletBalance = stakeData.balance;
         localStorage.setItem('rational_wallet_balance', walletBalance);
         updateWalletBadge();
+        staked = true;
       }
 
       const res = await fetch('/api/spin', {
@@ -3039,6 +3051,22 @@
       spinState.participantId = data.participantId;
       enterSpinRoom(data.game);
     } catch (err) {
+      // Refund staked coins if game creation failed after stake
+      if (staked) {
+        try {
+          const refundRes = await fetch('/api/wallet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'refund', userId: getWalletUserId(), amount: spinState.stakeAmount }),
+          });
+          const refundData = await refundRes.json();
+          if (refundRes.ok) {
+            walletBalance = refundData.balance;
+            localStorage.setItem('rational_wallet_balance', walletBalance);
+            updateWalletBadge();
+          }
+        } catch {}
+      }
       showSpinError(err.message);
     } finally {
       $('#spin-create-btn').disabled = false;
@@ -3056,6 +3084,8 @@
     $('#spin-join-btn').disabled = true;
     $('#spin-join-btn').textContent = 'Joining...';
 
+    let staked = false;
+    let stakeAmount = 0;
     try {
       // Step 1: Peek at game to check stake requirement BEFORE joining
       const peekRes = await fetch('/api/spin', {
@@ -3067,20 +3097,22 @@
       if (!peekRes.ok) throw new Error(peekData.error || 'Game not found');
 
       // Step 2: If staked game, deduct coins BEFORE joining
-      if (peekData.stakeRequired > 0) {
-        if (walletBalance < peekData.stakeRequired) {
-          throw new Error(`This game requires ${peekData.stakeRequired} coins to join. You have ${walletBalance}. Buy more in your wallet.`);
+      stakeAmount = peekData.stakeRequired;
+      if (stakeAmount > 0) {
+        if (walletBalance < stakeAmount) {
+          throw new Error(`This game requires ${stakeAmount} coins to join. You have ${walletBalance}. Buy more in your wallet.`);
         }
         const stakeRes = await fetch('/api/wallet', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'stake', userId: getWalletUserId(), amount: peekData.stakeRequired }),
+          body: JSON.stringify({ action: 'stake', userId: getWalletUserId(), amount: stakeAmount }),
         });
         const stakeData = await stakeRes.json();
         if (!stakeRes.ok) throw new Error(stakeData.error);
         walletBalance = stakeData.balance;
         localStorage.setItem('rational_wallet_balance', walletBalance);
         updateWalletBadge();
+        staked = true;
       }
 
       // Step 3: NOW join — coins already deducted, so no ghost participants
@@ -3096,6 +3128,22 @@
       spinState.participantId = data.participantId;
       enterSpinRoom(data.game);
     } catch (err) {
+      // Refund staked coins if join failed after stake
+      if (staked && stakeAmount > 0) {
+        try {
+          const refundRes = await fetch('/api/wallet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'refund', userId: getWalletUserId(), amount: stakeAmount }),
+          });
+          const refundData = await refundRes.json();
+          if (refundRes.ok) {
+            walletBalance = refundData.balance;
+            localStorage.setItem('rational_wallet_balance', walletBalance);
+            updateWalletBadge();
+          }
+        } catch {}
+      }
       showSpinError(err.message);
     } finally {
       $('#spin-join-btn').disabled = false;
@@ -3536,5 +3584,17 @@
     showScreen('history');
     window.history.replaceState({}, '', '/');
   }
+
+  // Clean up polling when tab goes background or page unloads
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopSpinPolling();
+      stopDebatePolling();
+    } else {
+      // Resume polling if still in an active game
+      if (spinState.gameCode) startSpinPolling();
+      if (debateState.roomCode) startDebatePolling();
+    }
+  });
 
 })();
