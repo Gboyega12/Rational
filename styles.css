@@ -289,7 +289,7 @@ body {
 .greeting-sub-text {
   font-family: var(--font-mono);
   font-size: var(--text-lg);
-  color: var(--fg-40);
+  color: var(--fg-60);
   line-height: 1.5;
   margin: 0 auto;
   letter-spacing: 0.02em;
@@ -334,7 +334,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.18em;
-  color: var(--fg-40);
+  color: var(--fg-60);
   white-space: nowrap;
 }
 
@@ -481,7 +481,7 @@ body {
 .door-decide .door-title { color: var(--matte-blue); }
 .door-desc {
   font-size: var(--text-sm);
-  color: var(--fg-40);
+  color: var(--fg-60);
   line-height: 1.5;
 }
 .door-arrow-ascii {
@@ -489,10 +489,10 @@ body {
   font-family: var(--font-mono);
   font-size: var(--text-lg);
   font-weight: 700;
-  color: var(--fg-20);
+  color: var(--fg-40);
   transition: all var(--dur) var(--ease);
 }
-.home-door:hover .door-arrow-ascii { transform: translateX(6px); color: var(--fg-60); }
+.home-door:hover .door-arrow-ascii { transform: translateX(6px); color: var(--fg-80); }
 .door-spin:hover .door-arrow-ascii { color: var(--mustard); }
 .door-debate:hover .door-arrow-ascii { color: var(--red); }
 .door-decide:hover .door-arrow-ascii { color: var(--matte-blue); }
