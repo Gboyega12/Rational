@@ -268,12 +268,19 @@
   const sendBtn = $('#send-btn');
 
   // "Make a decision" door
-  $('#decide-entry-btn').addEventListener('click', () => {
+  function goToDecide() {
     showScreen('decide-input');
     decisionInput.value = '';
     validateInput();
     decisionInput.focus();
-  });
+  }
+  $('#decide-entry-btn').addEventListener('click', goToDecide);
+
+  // Bridge nudges — funnel from game results to decision tool
+  const spinBridgeNudge = $('#spin-bridge-nudge');
+  if (spinBridgeNudge) spinBridgeNudge.addEventListener('click', goToDecide);
+  const debateBridgeNudge = $('#debate-bridge-nudge');
+  if (debateBridgeNudge) debateBridgeNudge.addEventListener('click', goToDecide);
 
   // "Decide" screen back button
   $('#decide-back').addEventListener('click', () => {
